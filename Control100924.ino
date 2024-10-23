@@ -222,7 +222,7 @@ void izquierda(){
 
 void derecha () {
     int servos01[] = { 1, 2, 3, 7 };
-    int startAngles01[] = {posiciones[1], posiciones[2], posiciones[3], posiciones[7,};
+    int startAngles01[] = {posiciones[1], posiciones[2], posiciones[3], posiciones[7};
     int endAngles01[] = { 25, 123, 160, 155 };
     smoothMove(4, servos01, startAngles01, endAngles01, t01);
 

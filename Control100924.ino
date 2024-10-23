@@ -68,25 +68,28 @@ void setInitialServoPositions() {
 
 //Funcion de movimiento
 void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int time) {
-  // Array de Pulsos Iniciales y Finales
+  //Array de Pulsos Iniciales y Finales
   int pulsesStart[count];
   int pulsesEnd[count];
   int pulseSteps[count];
 
-  // Calcula el pulso inicial, final y paso para cada servo
+  //Numero de pasos, puedes ajustar según lo que necesites
+  const int steps = 100; // Asegúrate de definirlo o pasar como argumento
+
+  //Calcula el pulso inicial, final y paso para cada servo
   for (int i = 0; i < count; i++) {
     pulsesStart[i] = angleToPulse(startAngles[i]);
     pulsesEnd[i] = angleToPulse(endAngles[i]);
     pulseSteps[i] = (pulsesEnd[i] - pulsesStart[i]) / steps;
   }
 
-  // Mueve los servos en pasos
+  //Mueve los servos en pasos
   for (int i = 0; i <= steps; i++) {
     for (int j = 0; j < count; j++) {
       int currentPulse = pulsesStart[j] + (pulseSteps[j] * i);
       pwm.setPWM(servos[j], 0, currentPulse);
     }
-    delay(time);
+    delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
 }
 
@@ -112,7 +115,7 @@ void processCommand(String command) {
    if (command.startsWith("T3:")) {
     int newValue = command.substring(3).toInt(); // Extraer el valor después de "T1="
     if (newValue > 0) {
-      t01 = newValue; // Actualizar el valor de t01
+      t03 = newValue; // Actualizar el valor de t01
     } else {
     }
     return;
@@ -215,14 +218,14 @@ void izquierda(){
     int endAngles10[] = { 85, 155, 130, 93, 35, 0};
     smoothMove(6, servos10, startAngles10, endAngles10,t03);
     delay(20);
-    pwm.setPWM(0, 0, angleToPulse(V0));
+    pwm.setPWM(0, 0, angleToPulse(posiciones[1]));
     delay(200);
 
 }
 
 void derecha () {
     int servos01[] = { 1, 2, 3, 7 };
-    int startAngles01[] = {posiciones[1], posiciones[2], posiciones[3], posiciones[7};
+    int startAngles01[] = {posiciones[1], posiciones[2], posiciones[3], posiciones[7]};
     int endAngles01[] = { 25, 123, 160, 155 };
     smoothMove(4, servos01, startAngles01, endAngles01, t01);
 

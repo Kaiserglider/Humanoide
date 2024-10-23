@@ -2,6 +2,12 @@
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
 #include "BluetoothSerial.h"
+#include <SPI.h>
+#include <SD.h>
+
+//Definir pines y direccion de Giroscopio (MPU6050)
+#define MPU6050_ADDR 0x68 //Cambiar si es necesario
+#define SD_CS 5 //Pin para chip SD para poder escribir archivo CSV y obtener datos del giroscopio
 
 // Definir modulo PWM
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
@@ -39,9 +45,38 @@ void setup() {
   pwm.begin();
   pwm.setPWMFreq(330);  // Configura la frecuencia PWM a 330 Hz para servomotores
   setInitialServoPositions();
+
+  //Iniciar Giroscopio
+  Wire.begin();
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x6B); //Registo de potencia
+  Wire.write(0); //Levantar MPU6050(Giroscopio)
+  Wire.endTransmission(true);
+  
+  //Iniciar tarjeta SD
+  if(!SD.begin(SD_CS)){
+    Serial.println("Error al iniciar tarjeta SD");
+    return;
+  }
 }
 
 void loop() {
+  //Leer Giroscopio
+  int16_t ax,ay,az, gx,gy,gz;
+  Wire.beginTransmission(MPU6050_ADDR);
+  Wire.write(0x3B); //Direccion del primer registro de datos
+  Wire.endTransmission(false);
+  Wire.requireForm(MPU6050_ADDR, 14, true); //14 registro de lectura
+  ax = Wire.read() << 8 | Wire.read();
+  ay = Wire.read() << 8 | Wire.read();
+  az = Wire.read() << 8 | Wire.read();
+  gx = Wire.read() << 8 | Wire.read();
+  gy = Wire.read() << 8 | Wire.read();
+  gz = Wire.read() << 8 | Wire.read();
+
+  //Guardar datos en archivo CSV (Se usara una libreria en Python llamda Pandas para leer los datos y encontrar tendencia y talvez implementar una IA para optimizar los angulos)
+  saveDataToCSV(ax,ay,ax,gx,gy,gz);
+
   // Verificar si hay datos disponibles en el puerto serial
   if (Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
@@ -87,6 +122,27 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
       pwm.setPWM(servos[j], 0, currentPulse);
     }
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
+  }
+}
+
+void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, int16_t gz){
+  File dataFile = SD.open("datos.csv", FILE_APPEND);
+  if (dataFile){
+    dataFile.print(ax);
+    dataFile.print(",");
+    dataFile.print(ay);
+    dataFile.print(",");
+    dataFile.print(az);
+    dataFile.print(",");
+    dataFile.print(gx);
+    dataFile.print(",");
+    dataFile.print(gy);
+    dataFile.print(",");
+    dataFile.print(gz);
+    dataFile.close();
+  }
+  else{
+    Serial.println("Error al abrir el archivo")
   }
 }
 

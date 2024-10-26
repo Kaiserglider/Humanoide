@@ -14,7 +14,24 @@
 
 //Definir Variables de posiciones Iniciales
 int posiciones[14] = {28, 55, 93, 155, 130, 95, 20, 160, 160, 100, 90, 20, 80, 90};
-
+//Definir Variables de posiciones variables
+int P0 = 28;
+int P1 = 55;
+int P2 = 93;
+int P3 = 155;
+int P4 = 130;
+int P5 = 95;
+int P6 = 20;
+int P7 = 160;
+int P8 = 160;
+int P9 = 100;
+int P10 = 90;
+int P11 = 20;
+int P12 = 80;
+int P13 = 90; 
+//Definir variable para control AdvMove
+int servos[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13};
+int CAM=13;
 //Definir tiempos
 int t01 = 20;
 int t02 = 30;
@@ -99,6 +116,20 @@ void setInitialServoPositions() {
     for (int i = 0; i < 14; i++) {
         pwm.setPWM(i, 0, angleToPulse(posiciones[i])); //Utiliza el array posiciones
     }
+    P0=posiciones[0];
+    P1=posiciones[1];
+    P2=posiciones[2];
+    P3=posiciones[3];
+    P4=posiciones[4];
+    P5=posiciones[5];
+    P6=posiciones[6];
+    P7=posiciones[7];
+    P8=posiciones[8];
+    P9=posiciones[9];
+    P10=posiciones[10];
+    P11=posiciones[11];
+    P12=posiciones[12];
+    P13=posiciones[13];
 }
 
 //Funcion de movimiento
@@ -123,6 +154,73 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
     }
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
+}
+//Funcion de Movimiento avanzado (Absoluto)
+void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+  int AbsAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+  int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
+ /* Serial.print(X0); //Diagnostic Mode
+  Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    Serial.print(startAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+  smoothMove(14, servos, startAngles, AbsAngles, time);
+ // Array de Pulsos Iniciales y Finales
+    P0=X0;
+    P1=X1;
+    P2=X2;
+    P3=X3;
+    P4=X4;
+    P5=X5;
+    P6=X6;
+    P7=X7;
+    P8=X8;
+    P9=X9;
+    P10=X10;
+    P11=X11;
+    P12=X12;
+    P13=X13;
+/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(AbsAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+}
+//Funcion de Movimiento Avanzado (Relativo)
+void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+  int RelAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+  int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
+  //Serial.print(X0); //Diagnostic Mode
+  //Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    //Serial.print(startAngles[i]);
+    //Serial.write(Str);
+    RelAngles[i] =startAngles[i] + RelAngles[i];
+  }
+  //Serial.println();
+  smoothMove(14, servos, startAngles, RelAngles, time);
+ /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(RelAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+    P0=X0+P0;
+    P1=X1+P1;
+    P2=X2+P2;
+    P3=X3+P3;
+    P4=X4+P4;
+    P5=X5+P5;
+    P6=X6+P6;
+    P7=X7+P7;
+    P8=X8+P8;
+    P9=X9+P9;
+    P10=X10+P10;
+    P11=X11+P11;
+    P12=X12+P12;
+    P13=X13+P13;
+
 }
 
 void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, int16_t gz){

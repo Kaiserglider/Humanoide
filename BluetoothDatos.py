@@ -3,7 +3,7 @@ import csv
 import time
 
 #Configura el puerto Bluetooth en la computadora (ajusta el nombre del puerto)
-bt_port = ""  # Ajusta al puerto correcto de tu dispositivo
+bt_port = ""  # Ajusta al puerto correcto del dispositivo
 baud_rate = 115200
 
 #Abre la conexion

@@ -1,20 +1,32 @@
 //LLamar a las librerias principales
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-#include "BluetoothSerial.h"
-#include <SPI.h>
-#include <SD.h>
-
-//Definir pines y direccion de Giroscopio (MPU6050)
-#define MPU6050_ADDR 0x68 //Cambiar si es necesario
-#define SD_CS 5 //Pin para chip SD para poder escribir archivo CSV y obtener datos del giroscopio
+#include <BluetoothSerial.h>
+#include <MPU6050.h>
 
 // Definir modulo PWM
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
 
 //Definir Variables de posiciones Iniciales
 int posiciones[14] = {28, 55, 93, 155, 130, 95, 20, 160, 160, 100, 90, 20, 80, 90};
-
+//Definir Variables de posiciones variables
+int P0 = 28;
+int P1 = 55;
+int P2 = 93;
+int P3 = 155;
+int P4 = 130;
+int P5 = 95;
+int P6 = 20;
+int P7 = 160;
+int P8 = 160;
+int P9 = 100;
+int P10 = 90;
+int P11 = 20;
+int P12 = 80;
+int P13 = 90; 
+//Definir variable para control AdvMove
+int servos[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13};
+int CAM=13;
 //Definir tiempos
 int t01 = 20;
 int t02 = 30;
@@ -30,6 +42,7 @@ Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
 uint16_t servoMax = 3400;  // Pulso "máximo" para el servomotor
 
+MPU6050 mpu; //Iniciar el MPU6050
 BluetoothSerial SerialBT;
 String device_name = "Dorado";
 
@@ -46,36 +59,50 @@ void setup() {
   pwm.setPWMFreq(330);  // Configura la frecuencia PWM a 330 Hz para servomotores
   setInitialServoPositions();
 
-  //Iniciar Giroscopio
-  Wire.begin();
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(0x6B); //Registo de potencia
-  Wire.write(0); //Levantar MPU6050(Giroscopio)
-  Wire.endTransmission(true);
-  
-  //Iniciar tarjeta SD
-  if(!SD.begin(SD_CS)){
-    Serial.println("Error al iniciar tarjeta SD");
-    return;
+  //Verificar si el MPU6050 esta bien conectado
+  if (!mpu.testConection()) {
+    Serial.println("MPU6050 no conectado");
+    while(1);
   }
+  
 }
 
 void loop() {
-  //Leer Giroscopio
-  int16_t ax,ay,az, gx,gy,gz;
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(0x3B); //Direccion del primer registro de datos
-  Wire.endTransmission(false);
-  Wire.requireForm(MPU6050_ADDR, 14, true); //14 registro de lectura
-  ax = Wire.read() << 8 | Wire.read();
-  ay = Wire.read() << 8 | Wire.read();
-  az = Wire.read() << 8 | Wire.read();
-  gx = Wire.read() << 8 | Wire.read();
-  gy = Wire.read() << 8 | Wire.read();
-  gz = Wire.read() << 8 | Wire.read();
+  //Leer datos del acelerometro y giroscopio
+  int16_t ax, ay, az, gx, gy, gz;
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
+  //obtener angulos
+  int angle0 = P0.read();
+  int angle1 = P1.read();
+  int angle2 = P2.read();
+  int angle3 = P3.read();
+  int angle4 = P4.read();
+  int angle5 = P5.read();
+  int angle6 = P6.read();
+  int angle7 = P7.read();
+  int angle8 = P8.read();
+  int angle9 = P9.read();
+  int angle10 = P10.read();
+  int angle11 = P11.read();
+  int angle12 = P12.read();
+  int angle13 = P13.read();
+
+  //Cadena de datos
+  String data = String(ax) + "," + String(ay) + "," + String(az) + ",";
+  data += String(gx) + "," + String(gy) + "," + String(gz) + ","; 
+  data += String(angle0) + "," + String(angle1) + "," + String(angle2) + "," +
+          String(angle3) + "," + String(angle4) + "," + String(angle5) + "," +
+          String(angle6) + "," + String(angle7) + "," + String(angle8) + "," +
+          String(angle9) + "," + String(angle10) + "," + String(angle11) + "," +
+          String(angle12) + "," + String(angle13);
+
+  SerialBT.println(data);
+
+  /*
   //Guardar datos en archivo CSV (Se usara una libreria en Python llamda Pandas para leer los datos y encontrar tendencia y talvez implementar una IA para optimizar los angulos)
   saveDataToCSV(ax,ay,ax,gx,gy,gz);
+  */
 
   // Verificar si hay datos disponibles en el puerto serial
   if (Serial.available() > 0) {
@@ -99,6 +126,20 @@ void setInitialServoPositions() {
     for (int i = 0; i < 14; i++) {
         pwm.setPWM(i, 0, angleToPulse(posiciones[i])); //Utiliza el array posiciones
     }
+    P0=posiciones[0];
+    P1=posiciones[1];
+    P2=posiciones[2];
+    P3=posiciones[3];
+    P4=posiciones[4];
+    P5=posiciones[5];
+    P6=posiciones[6];
+    P7=posiciones[7];
+    P8=posiciones[8];
+    P9=posiciones[9];
+    P10=posiciones[10];
+    P11=posiciones[11];
+    P12=posiciones[12];
+    P13=posiciones[13];
 }
 
 //Funcion de movimiento
@@ -124,7 +165,74 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
 }
+//Funcion de Movimiento avanzado (Absoluto)
+void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+  int AbsAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+  int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
+ /* Serial.print(X0); //Diagnostic Mode
+  Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    Serial.print(startAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+  smoothMove(14, servos, startAngles, AbsAngles, time);
+ // Array de Pulsos Iniciales y Finales
+    P0=X0;
+    P1=X1;
+    P2=X2;
+    P3=X3;
+    P4=X4;
+    P5=X5;
+    P6=X6;
+    P7=X7;
+    P8=X8;
+    P9=X9;
+    P10=X10;
+    P11=X11;
+    P12=X12;
+    P13=X13;
+/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(AbsAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+}
+//Funcion de Movimiento Avanzado (Relativo)
+void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+  int RelAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+  int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
+  //Serial.print(X0); //Diagnostic Mode
+  //Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    //Serial.print(startAngles[i]);
+    //Serial.write(Str);
+    RelAngles[i] =startAngles[i] + RelAngles[i];
+  }
+  //Serial.println();
+  smoothMove(14, servos, startAngles, RelAngles, time);
+ /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(RelAngles[i]);
+    Serial.write(Str);
+  }
+  Serial.println();*/
+    P0=X0+P0;
+    P1=X1+P1;
+    P2=X2+P2;
+    P3=X3+P3;
+    P4=X4+P4;
+    P5=X5+P5;
+    P6=X6+P6;
+    P7=X7+P7;
+    P8=X8+P8;
+    P9=X9+P9;
+    P10=X10+P10;
+    P11=X11+P11;
+    P12=X12+P12;
+    P13=X13+P13;
 
+}
+/*
 void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, int16_t gz){
   File dataFile = SD.open("datos.csv", FILE_APPEND);
   if (dataFile){
@@ -145,7 +253,7 @@ void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, i
     Serial.println("Error al abrir el archivo")
   }
 }
-
+*/
 void processCommand(String command) {
   command.trim();  // Elimina espacios en blanco al inicio y al final
   //Modificador de Velocidades

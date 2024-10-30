@@ -10,7 +10,7 @@ baud_rate = 115200
 ser = serial.Serial(bt_port, baud_rate, timeout=1)
 
 #Crea el archivo CSV
-with open("datos_mpu6050_servos.csv", mode="w", newline="") as file:
+with open("datos.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
     writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "servo1_angle", "servo2_angle"])
 

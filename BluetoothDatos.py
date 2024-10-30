@@ -12,7 +12,7 @@ ser = serial.Serial(bt_port, baud_rate, timeout=1)
 #Crea el archivo CSV
 with open("datos.csv", mode="w", newline="") as file:
     writer = csv.writer(file)
-    writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "angle0", "angle1", "angle2","angle3","angle4","angle5","angle6","angle7","angle8","angle9""angle10""angle11""angle12""angle13"])
+    writer.writerow(["ax", "ay", "az", "gx", "gy", "gz", "angle0", "angle1", "angle2","angle3","angle4","angle5","angle6","angle7","angle8","angle9","angle10","angle11","angle12","angle13"])
 
     try:
         while True:

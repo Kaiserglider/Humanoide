@@ -13,8 +13,8 @@
 #define l1 9
 #define l2 8
 
-#define stepClearance 1
-#define stepHeight 10
+#define stepClearance 2
+#define stepHeight 16
 
 /*#include <SPI.h>
 #include <SD.h>
@@ -75,6 +75,8 @@ void setup() {
   pwm.begin();
   pwm.setPWMFreq(330);  // Configura la frecuencia PWM a 330 Hz para servomotores
   setInitialServoPositions();
+//cinematica
+//  initialize();
 /*
   //Iniciar Giroscopio
   Wire.begin();
@@ -174,8 +176,8 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
 void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
   int AbsAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
   int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
-  Serial.print(X0); //Diagnostic Mode
-  Serial.println();
+//  Serial.print(X0); //Diagnostic Mode
+//  Serial.println();
   for (int i = 0; i < CAM; i++) {
     Serial.print(startAngles[i]);
     Serial.write("\t");
@@ -197,11 +199,11 @@ void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,in
     P11=X11;
     P12=X12;
     P13=X13;
-for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
     Serial.print(AbsAngles[i]);
     Serial.write("\t");
   }
-  Serial.println();
+  Serial.println();*/
 }
 //Funcion de Movimiento Avanzado (Relativo)
 void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
@@ -329,8 +331,13 @@ if (command.startsWith("caminar")) {
     izquierda();
     delay(10);
 }
-if (command.startsWith("izquierdo")) {
-    takeStep(2, 0);
+if (command.startsWith("cinematic")) {
+  //cinematica
+    takeStep(5, 0);
+}
+if (command.startsWith("prepare")) {
+  //cinematica
+    initialize();
 }
 if (command.startsWith("derecha")) {
     derecha2();
@@ -451,12 +458,13 @@ void girar () {
     int endAngles05[] =   {93, 28, 50, 95, 155, 160, 20};
     smoothMove(7, servos05, startAngles05, endAngles05, 15);
 }
+//cinematica
 void updateServoPos(int target1, int target2, int target3, char leg){
   if (leg == 'l'){
-    AdvMoveAbs(20,10,0,0,0,2*posiciones[3]+target3,posiciones[4]+ target2,posiciones[5]+target1,0,-5,0,0,0,0,0,0);
+    AdvMoveAbs(20,10,P0,P1,P2,posiciones[3]-(target3-80),posiciones[4]+ target2,posiciones[5]+target1,P6,P7,P8,P9,P10,P11,P12,P13);
   }
-  else if (leg == 'r'){
-    AdvMoveAbs(20,10,target3,posiciones[1]-target2,posiciones[2]-target1,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13);
+  else if (leg == 'r'){ 
+    AdvMoveAbs(20,10, posiciones[0]+(target3-80), posiciones[1]-target2,posiciones[2]-target1,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13);
     
   }
 }
@@ -477,13 +485,16 @@ void pos(float x, float z, char leg){
   float hipDeg = hipDeg1 + hipDeg2;
   float kneeDeg = kneeRad * (180/PI);
   float ankleDeg = ankleRad * (180/PI);
-/*
- Serial.print(hipDeg);
- Serial.print("\t");
- Serial.print(kneeDeg);
- Serial.print("\t");
- Serial.println(ankleDeg);
-*/
+
+  Serial.print(leg);
+  Serial.print("\t");
+  Serial.print(ankleDeg);
+  Serial.print("\t");
+  Serial.print(kneeDeg);
+  Serial.print("\t");
+  Serial.print(hipDeg);
+  Serial.print("\t");
+
   updateServoPos(hipDeg, kneeDeg, ankleDeg, leg);  
 }
 
@@ -500,9 +511,8 @@ void takeStep(float stepLength, int stepVelocity){
     delay(stepVelocity);
   }
 }
-
 void initialize(){
-  for (float i = 10.7; i >= stepHeight; i-=0.1){
+  for (float i = 17; i >= stepHeight; i-=0.5){
     pos(0, i, 'l');
     pos(0, i, 'r');
   }

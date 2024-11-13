@@ -6,24 +6,14 @@
 //llamar a las librerias de los giroscopios
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
-//llamarlibrerias al PID y definirlo
-#include <PIDController.hpp>
-PID::PIDParameters<double> parameters(4.0, 0.2, 1);
-PID::PIDController<double> pidController(parameters);
-int XG1P =100 ;
-int XG1O =0 ;
 // Definir modulo PWM
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
 //definimos giroscopio y variables
-Adafruit_MPU6050 mpu1;
-Adafruit_MPU6050 mpu2;
-int XG1 = 0;
-int YG1 = 0;
-int ZG1 = 0;
-
-int XG2 = 0;
-int YG2 = 0;
-int ZG2 = 0;
+Adafruit_MPU6050 mpu;
+float XG1 = 0;
+float YG1 = 0;
+float ZG1 = 0;
+float ref = 0.15;
 //valores min y maximos del pulso
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
@@ -36,8 +26,8 @@ TaskHandle_t Task1;
 TaskHandle_t Task2;
 //Definir Variables de posiciones Iniciales
 int posiciones[14] = {45, 140, 90, 135, 40, 91, 20, 160, 160, 100, 90, 20, 80, 90};
-int limitesA[14]= {0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-int limitesB[14]= {90, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180};
+int limitesA[14]= {0, 30, 0, 50, 0, 50, 0, 0, 0, 0, 0, 0, 0, 0};
+int limitesB[14]= {130, 180, 130, 180, 150, 180, 180, 180, 180, 180, 180, 180, 180, 180};
 //Definir Variables de posiciones variables
 int P0 = 45;
 int P1 = 140;
@@ -64,7 +54,7 @@ int CAM3=9;
 int t01 = 20;
 int t02 = 10;
 int t03 = 35;     // Tiempo de retraso entre movimientos
-int steps = 10;  // Número de pasos para suavizar el movimiento
+//int steps = 10;  // Número de pasos para suavizar el movimiento
 //Variables para control manual de motores
 int N = 100;
 int M = 100;
@@ -82,35 +72,32 @@ int k03=10;
 
 int Length=5;
 
+
 void setup() {
+  //Inicialisamos Bluetooth
   Serial.begin(115200); 
   SerialBT.begin(device_name);  // Nombre del dispositivo Bluetooth
   Serial.printf("El dispositivo con nombre \"%s\" está iniciado.\n¡Ahora puedes emparejarlo con Bluetooth!\n", device_name.c_str());
-
+  //esperamos al serial
   while (!Serial) {
        delay(10);// Espera a que el puerto serie esté listo
   }
+  //inicialisamos PWM y valores iniciales
   pwm.begin();
   pwm.setPWMFreq(330);
   setInitialServoPositions();
-// inicialisamos giroscopio
-if (!mpu1.begin(0x68)) {
+// inicialisamos giroscopio/s
+if (!mpu.begin(0x68)) {
   Serial.println("Sensor 1 init failed");
   while (1)
     yield();
 }
-Serial.println("MPU6050 1 Found!");
-if (!mpu2.begin(0x69)) {
-  Serial.println("Sensor 2 init failed");
-  while (1)
-    yield();
-}
-Serial.println("MPU6050 2 Found!");
+Serial.println("MPU6050 Found!");
 
-mpu1.setAccelerometerRange(MPU6050_RANGE_8_G);
-mpu1.setGyroRange(MPU6050_RANGE_500_DEG);
+mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+mpu.setGyroRange(MPU6050_RANGE_500_DEG);
 Serial.print("Gyro range set to: ");
-switch (mpu1.getGyroRange()) {
+switch (mpu.getGyroRange()) {
 case MPU6050_RANGE_250_DEG:
   Serial.println("+- 250 deg/s");
   break;
@@ -124,33 +111,9 @@ case MPU6050_RANGE_2000_DEG:
   Serial.println("+- 2000 deg/s");
   break;
 }
-mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
-mpu2.setAccelerometerRange(MPU6050_RANGE_8_G);
-mpu2.setGyroRange(MPU6050_RANGE_500_DEG);
-Serial.print("Gyro range set to: ");
-switch (mpu2.getGyroRange()) {
-case MPU6050_RANGE_250_DEG:
-  Serial.println("+- 250 deg/s");
-  break;
-case MPU6050_RANGE_500_DEG:
-  Serial.println("+- 500 deg/s");
-  break;
-case MPU6050_RANGE_1000_DEG:
-  Serial.println("+- 1000 deg/s");
-  break;
-case MPU6050_RANGE_2000_DEG:
-  Serial.println("+- 2000 deg/s");
-  break;
-}
-mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
-  pidController.Input = XG1P;
-  pidController.Setpoint = 100;
-
-  pidController.TurnOn();
-
-  //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
+  //inicialisamos nucleo 0
   xTaskCreatePinnedToCore(
-                    Task1code,   /* Task function. */
+                    Core0,   /* Task function. */
                     "Task1",     /* name of task. */
                     10000,       /* Stack size of task */
                     NULL,        /* parameter of the task */
@@ -159,9 +122,9 @@ mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
                     0);          /* pin task to core 0 */                  
   delay(500); 
 
-  //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+//inicialisamos nucleo 1
   xTaskCreatePinnedToCore(
-                    Task2code,   /* Task function. */
+                    Core1,   /* Task function. */
                     "Task2",     /* name of task. */
                     10000,       /* Stack size of task */
                     NULL,        /* parameter of the task */
@@ -172,7 +135,7 @@ mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
 }
 
 //Task1code: check the MPU6050 And control arms
-void Task1code( void * pvParameters ){
+void Core0( void * pvParameters ){
   Serial.print("Task1 started on core ");
   Serial.println(xPortGetCoreID());
 
@@ -180,35 +143,24 @@ void Task1code( void * pvParameters ){
  //   Serial.print("Task1 running on core ");
  //   Serial.println(xPortGetCoreID());
     MPU1();
-    MPU2();
     Serial.print("G1 ");
-    Serial.print(XG1);
+    Serial.print(XG1,5);
     Serial.print(" ");
-    Serial.print(YG1);
+    Serial.print(YG1,5);
     Serial.print(" ");
-    Serial.print(ZG1);
-    Serial.print(" G2 ");
-    Serial.print(XG2);
-    Serial.print(" ");
-    Serial.print(YG2);
-    Serial.print(" ");
-    Serial.println(ZG2);
-    XG1P=100-XG1;
-    pidController.Input = XG1P;
-    pidController.Update();
-    XG1O=pidController.Output;
-     Serial.print(XG1P);
-     Serial.print(" ");
-     Serial.println(XG1O);
-    
-/*
-    AdvMoveAbsA(20,10,P6+YG1,P7-YG1,P8+XG1,P9,P10,P11-XG1,P12,P13);
-    delay(2500);*/
+    Serial.println(ZG1,5);    
+    /*
+if(ZG1>2){
+    AdvMoveAbsA(20,1,30,30,30,30,30,30,30,30);  
+}
+if(ZG1<-2){
+    AdvMoveAbsA(20,1,60,60,60,60,60,60,60,60);  
+}*/
   } 
 }
 
 //Task2code: check the bluetooth and calculate cinemaatic
-void Task2code( void * pvParameters ){
+void Core1( void * pvParameters ){
   Serial.print("Task2 started on core ");
   Serial.println(xPortGetCoreID());
 
@@ -247,7 +199,7 @@ int angleToPulse(int ang) {
 
 
 //Funcion de movimiento
-void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int time) {
+void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int time, int steps) {
   //Array de Pulsos Iniciales y Finales
   int pulsesStart[count];
   int pulsesEnd[count];
@@ -295,7 +247,7 @@ void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,in
     Serial.write("\t");
   }
   Serial.println();*/
-  smoothMove(14, servos, startAngles, AbsAngles, time);
+  smoothMove(14, servos, startAngles, AbsAngles, time, steps);
  // Array de Pulsos Iniciales y Finales
     P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
     P4 = AbsAngles[4]; P5 = AbsAngles[5]; P6 = AbsAngles[6]; P7 = AbsAngles[7];
@@ -322,7 +274,7 @@ void AdvMoveAbsL(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5) 
     Serial.write("\t");
   }
   Serial.println();*/
-  smoothMove(CAM2, servos2, startAngles, AbsAngles, time);
+  smoothMove(CAM2, servos2, startAngles, AbsAngles, time,steps);
  // Array de Pulsos Iniciales y Finales
     P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
     P4 = AbsAngles[4]; P5 = AbsAngles[5];
@@ -347,7 +299,7 @@ void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11
     Serial.write("\t");
   }
   Serial.println();*/
-  smoothMove(CAM3, servos3, startAngles, AbsAngles, time);
+  smoothMove(CAM3, servos3, startAngles, AbsAngles, time, steps);
  // Array de Pulsos Iniciales y Finales
     P6 = AbsAngles[6]; P7 = AbsAngles[7];
     P8 = AbsAngles[8]; P9 = AbsAngles[9]; P10 = AbsAngles[10]; P11 = AbsAngles[11];
@@ -376,7 +328,7 @@ void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,in
     RelAngles[i] =startAngles[i] + RelAngles[i];
   }
   //Serial.println();
-  smoothMove(14, servos, startAngles, RelAngles, time);
+  smoothMove(14, servos, startAngles, RelAngles, time, steps);
  /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
     Serial.print(RelAngles[i]);
     Serial.write(Str);
@@ -522,11 +474,11 @@ AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
 //cinematica
 void updateServoPos(int target1, int target2, int target3, char leg){
   if (leg == 'l'){
-    AdvMoveAbsL(t01,10,P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03);
+    AdvMoveAbsL(t01,1,P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03);
 
   }
   else if (leg == 'r'){ 
-    AdvMoveAbsL(t01,10, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5);
+    AdvMoveAbsL(t01,1, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5);
     
   }
 }
@@ -610,8 +562,6 @@ void setVariable(String variableName, int newValue) {
     stepHeight = newValue;
   } else if (variableName == "Length") {
     Length = newValue;
-  } else if (variableName == "steps") {
-    steps = newValue;
   } else if (variableName.startsWith("P")) { // Variables P
     int index = variableName.substring(1).toInt();
     if (index >= 0 && index < 14) {
@@ -642,43 +592,30 @@ int validarAngulo(int servoID, int anguloSolicitado) {
 }
 void MPU1(){
     sensors_event_t a, g, temp;
-    mpu1.getEvent(&a, &g, &temp);
-    XG1 = g.gyro.x;
-    YG1 = g.gyro.y;
-    ZG1 = g.gyro.z;
-    //diagnostic Mode
+    mpu.getEvent(&a, &g, &temp);
+    float XG1A = g.gyro.x;
+    float YG1A = g.gyro.y;
+    float ZG1A = g.gyro.z;
+    if(XG1A>0.2 || XG1A<-ref){
+    XG1 =XG1 + XG1A;  
+    }
+    if(YG1A>0.2 || YG1A<-ref){
+    YG1 =YG1 + YG1A;  
+    }
+    if(ZG1A>0.2 || ZG1A<-ref){
+    ZG1 =ZG1 + ZG1A;  
+    }    //diagnostic Mode
 //    Serial.print("Task1 running on core ");
 //    Serial.println(xPortGetCoreID());
 /*    Serial.print("Gyroscope 1 ");
     Serial.print("X: ");
-    Serial.print(XG1, 1);
+    Serial.print(g.gyro.x, 1);
     Serial.print(" rps, ");
     Serial.print("Y: ");
-    Serial.print(YG1, 1);
+    Serial.print(g.gyro.y, 1);
     Serial.print(" rps, ");
     Serial.print("Z: ");
-    Serial.print(ZG1, 1);
+    Serial.print(g.gyro.z, 1);
     Serial.println(" rps");*/
-    delay(100);
-}
-void MPU2(){
-    sensors_event_t a, g, temp;
-    mpu2.getEvent(&a, &g, &temp);
-    XG2 = g.gyro.x;
-    YG2 = g.gyro.y;
-    ZG2 = g.gyro.z;
-    //diagnostic Mode
-  /*  Serial.print("Task1 running on core ");
-    Serial.println(xPortGetCoreID());
-    Serial.print("Gyroscope 2 ");
-    Serial.print("X: ");
-    Serial.print(XG1, 1);
-    Serial.print(" rps, ");
-    Serial.print("Y: ");
-    Serial.print(YG1, 1);
-    Serial.print(" rps, ");
-    Serial.print("Z: ");
-    Serial.print(ZG1, 1);
-    Serial.println(" rps");*/
-    delay(100);
+    delay(20);
 }

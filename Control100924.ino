@@ -10,11 +10,8 @@
 #include <PIDController.hpp>
 PID::PIDParameters<double> parameters(4.0, 0.2, 1);
 PID::PIDController<double> pidController(parameters);
-//llamar a las librerias del PID y definirlo 
-#include <PIDController.hpp>
-PID::PIDParameters<double> parameters(4.0, 0.2, 1);
-PID::PIDController<double> pidController(parameters);
-
+int XG1P =100 ;
+int XG1O =0 ;
 // Definir modulo PWM
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
 //definimos giroscopio y variables
@@ -23,15 +20,10 @@ Adafruit_MPU6050 mpu2;
 int XG1 = 0;
 int YG1 = 0;
 int ZG1 = 0;
+
 int XG2 = 0;
 int YG2 = 0;
 int ZG2 = 0;
-//variables PID
-/*double Kp=2, Ki=5, Kd=1;
-double Input, Output, Setpoint;
-unsigned long currentTime, previousTime;
-double elapsedTime;
-double error, lastError, cumError, rateError;*/
 //valores min y maximos del pulso
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
@@ -151,6 +143,10 @@ case MPU6050_RANGE_2000_DEG:
   break;
 }
 mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
+  pidController.Input = XG1P;
+  pidController.Setpoint = 100;
+
+  pidController.TurnOn();
 
   //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
   xTaskCreatePinnedToCore(
@@ -184,13 +180,28 @@ void Task1code( void * pvParameters ){
  //   Serial.print("Task1 running on core ");
  //   Serial.println(xPortGetCoreID());
     MPU1();
-    delay(100);
     MPU2();
-    delay(100);
+    Serial.print("G1 ");
+    Serial.print(XG1);
+    Serial.print(" ");
+    Serial.print(YG1);
+    Serial.print(" ");
+    Serial.print(ZG1);
+    Serial.print(" G2 ");
+    Serial.print(XG2);
+    Serial.print(" ");
+    Serial.print(YG2);
+    Serial.print(" ");
+    Serial.println(ZG2);
+    XG1P=100-XG1;
+    pidController.Input = XG1P;
+    pidController.Update();
+    XG1O=pidController.Output;
+     Serial.print(XG1P);
+     Serial.print(" ");
+     Serial.println(XG1O);
+    
 /*
-XG1 = g.gyro.x;
-YG1 = g.gyro.y;
-ZG1 = g.gyro.z;
     AdvMoveAbsA(20,10,P6+YG1,P7-YG1,P8+XG1,P9,P10,P11-XG1,P12,P13);
     delay(2500);*/
   } 
@@ -632,38 +643,42 @@ int validarAngulo(int servoID, int anguloSolicitado) {
 void MPU1(){
     sensors_event_t a, g, temp;
     mpu1.getEvent(&a, &g, &temp);
+    XG1 = g.gyro.x;
+    YG1 = g.gyro.y;
+    ZG1 = g.gyro.z;
     //diagnostic Mode
-  //  Serial.print("Task1 running on core ");
-  //  Serial.println(xPortGetCoreID());
-    Serial.print("Gyroscope 1 ");
+//    Serial.print("Task1 running on core ");
+//    Serial.println(xPortGetCoreID());
+/*    Serial.print("Gyroscope 1 ");
     Serial.print("X: ");
-    Serial.print(g.gyro.x, 1);
+    Serial.print(XG1, 1);
     Serial.print(" rps, ");
     Serial.print("Y: ");
-    Serial.print(g.gyro.y, 1);
+    Serial.print(YG1, 1);
     Serial.print(" rps, ");
     Serial.print("Z: ");
-    Serial.print(g.gyro.z, 1);
-    Serial.println(" rps");
+    Serial.print(ZG1, 1);
+    Serial.println(" rps");*/
     delay(100);
-    return;
 }
 void MPU2(){
     sensors_event_t a, g, temp;
     mpu2.getEvent(&a, &g, &temp);
+    XG2 = g.gyro.x;
+    YG2 = g.gyro.y;
+    ZG2 = g.gyro.z;
     //diagnostic Mode
-  //  Serial.print("Task1 running on core ");
-  //  Serial.println(xPortGetCoreID());
+  /*  Serial.print("Task1 running on core ");
+    Serial.println(xPortGetCoreID());
     Serial.print("Gyroscope 2 ");
     Serial.print("X: ");
-    Serial.print(g.gyro.x, 1);
+    Serial.print(XG1, 1);
     Serial.print(" rps, ");
     Serial.print("Y: ");
-    Serial.print(g.gyro.y, 1);
+    Serial.print(YG1, 1);
     Serial.print(" rps, ");
     Serial.print("Z: ");
-    Serial.print(g.gyro.z, 1);
-    Serial.println(" rps");
+    Serial.print(ZG1, 1);
+    Serial.println(" rps");*/
     delay(100);
-    return;
 }

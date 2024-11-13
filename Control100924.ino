@@ -1,26 +1,58 @@
-//LLamar a las librerias principales
+//llamar a la libreria del bluetooth
+#include "BluetoothSerial.h"
+//LLamar a las librerias del modulo PWM
 #include <Wire.h>
 #include <Adafruit_PWMServoDriver.h>
-#include "BluetoothSerial.h"
-#include <SPI.h>
-#include <SD.h>
-
-//Definir pines y direccion de Giroscopio (MPU6050)
-#define MPU6050_ADDR 0x68 //Cambiar si es necesario
-#define SD_CS 5 //Pin para chip SD para poder escribir archivo CSV y obtener datos del giroscopio
+//llamar a las librerias de los giroscopios
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+//llamarlibrerias al PID y definirlo
+#include <PIDController.hpp>
+PID::PIDParameters<double> parameters(4.0, 0.2, 1);
+PID::PIDController<double> pidController(parameters);
+//llamar a las librerias del PID y definirlo 
+#include <PIDController.hpp>
+PID::PIDParameters<double> parameters(4.0, 0.2, 1);
+PID::PIDController<double> pidController(parameters);
 
 // Definir modulo PWM
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
+//definimos giroscopio y variables
+Adafruit_MPU6050 mpu1;
+Adafruit_MPU6050 mpu2;
+int XG1 = 0;
+int YG1 = 0;
+int ZG1 = 0;
+int XG2 = 0;
+int YG2 = 0;
+int ZG2 = 0;
+//variables PID
+/*double Kp=2, Ki=5, Kd=1;
+double Input, Output, Setpoint;
+unsigned long currentTime, previousTime;
+double elapsedTime;
+double error, lastError, cumError, rateError;*/
+//valores min y maximos del pulso
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
+uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
+uint16_t servoMax = 3400;  // Pulso "máximo" para el servomotor
+//definicion del bluetooth
+BluetoothSerial SerialBT;
+String device_name = "Dorado";
 
+TaskHandle_t Task1;
+TaskHandle_t Task2;
 //Definir Variables de posiciones Iniciales
-int posiciones[14] = {28, 55, 93, 155, 130, 95, 20, 160, 160, 100, 90, 20, 80, 90};
+int posiciones[14] = {45, 140, 90, 135, 40, 91, 20, 160, 160, 100, 90, 20, 80, 90};
+int limitesA[14]= {0, 60, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+int limitesB[14]= {90, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180};
 //Definir Variables de posiciones variables
-int P0 = 28;
-int P1 = 55;
-int P2 = 93;
-int P3 = 155;
-int P4 = 130;
-int P5 = 95;
+int P0 = 45;
+int P1 = 140;
+int P2 = 90;
+int P3 = 135;
+int P4 = 40;
+int P5 = 91;
 int P6 = 20;
 int P7 = 160;
 int P8 = 160;
@@ -32,69 +64,146 @@ int P13 = 90;
 //Definir variable para control AdvMove
 int servos[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13};
 int CAM=13;
+int servos2[]={0,1,2,3,4,5};
+int CAM2=6;
+int servos3[]={6,7,8,9,10,11,12,13};
+int CAM3=9;
 //Definir tiempos
 int t01 = 20;
-int t02 = 30;
+int t02 = 10;
 int t03 = 35;     // Tiempo de retraso entre movimientos
 int steps = 10;  // Número de pasos para suavizar el movimiento
 //Variables para control manual de motores
 int N = 100;
 int M = 100;
 int P = 0;
+//Cinematica
+int l1=9 ;
+int l2=8;
 
-//valores min y maximos del pulso
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
-uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
-uint16_t servoMax = 3400;  // Pulso "máximo" para el servomotor
+int stepClearance=2;
+int stepHeight=16;
 
-BluetoothSerial SerialBT;
-String device_name = "Dorado";
+int k01=10;
+int k02=10;
+int k03=10;
+
+int Length=5;
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(115200); 
   SerialBT.begin(device_name);  // Nombre del dispositivo Bluetooth
   Serial.printf("El dispositivo con nombre \"%s\" está iniciado.\n¡Ahora puedes emparejarlo con Bluetooth!\n", device_name.c_str());
 
   while (!Serial) {
-    // Espera a que el puerto serie esté listo
+       delay(10);// Espera a que el puerto serie esté listo
   }
-
   pwm.begin();
-  pwm.setPWMFreq(330);  // Configura la frecuencia PWM a 330 Hz para servomotores
+  pwm.setPWMFreq(330);
   setInitialServoPositions();
+// inicialisamos giroscopio
+if (!mpu1.begin(0x68)) {
+  Serial.println("Sensor 1 init failed");
+  while (1)
+    yield();
+}
+Serial.println("MPU6050 1 Found!");
+if (!mpu2.begin(0x69)) {
+  Serial.println("Sensor 2 init failed");
+  while (1)
+    yield();
+}
+Serial.println("MPU6050 2 Found!");
 
-  //Iniciar Giroscopio
-  Wire.begin();
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(0x6B); //Registo de potencia
-  Wire.write(0); //Levantar MPU6050(Giroscopio)
-  Wire.endTransmission(true);
-  
-  //Iniciar tarjeta SD
-  if(!SD.begin(SD_CS)){
-    Serial.println("Error al iniciar tarjeta SD");
-    return;
-  }
+mpu1.setAccelerometerRange(MPU6050_RANGE_8_G);
+mpu1.setGyroRange(MPU6050_RANGE_500_DEG);
+Serial.print("Gyro range set to: ");
+switch (mpu1.getGyroRange()) {
+case MPU6050_RANGE_250_DEG:
+  Serial.println("+- 250 deg/s");
+  break;
+case MPU6050_RANGE_500_DEG:
+  Serial.println("+- 500 deg/s");
+  break;
+case MPU6050_RANGE_1000_DEG:
+  Serial.println("+- 1000 deg/s");
+  break;
+case MPU6050_RANGE_2000_DEG:
+  Serial.println("+- 2000 deg/s");
+  break;
+}
+mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
+mpu2.setAccelerometerRange(MPU6050_RANGE_8_G);
+mpu2.setGyroRange(MPU6050_RANGE_500_DEG);
+Serial.print("Gyro range set to: ");
+switch (mpu2.getGyroRange()) {
+case MPU6050_RANGE_250_DEG:
+  Serial.println("+- 250 deg/s");
+  break;
+case MPU6050_RANGE_500_DEG:
+  Serial.println("+- 500 deg/s");
+  break;
+case MPU6050_RANGE_1000_DEG:
+  Serial.println("+- 1000 deg/s");
+  break;
+case MPU6050_RANGE_2000_DEG:
+  Serial.println("+- 2000 deg/s");
+  break;
+}
+mpu2.setFilterBandwidth(MPU6050_BAND_5_HZ);
+
+  //create a task that will be executed in the Task1code() function, with priority 1 and executed on core 0
+  xTaskCreatePinnedToCore(
+                    Task1code,   /* Task function. */
+                    "Task1",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &Task1,      /* Task handle to keep track of created task */
+                    0);          /* pin task to core 0 */                  
+  delay(500); 
+
+  //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+  xTaskCreatePinnedToCore(
+                    Task2code,   /* Task function. */
+                    "Task2",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &Task2,      /* Task handle to keep track of created task */
+                    1);          /* pin task to core 1 */
+    delay(500); 
 }
 
-void loop() {
-  //Leer Giroscopio
-  int16_t ax,ay,az, gx,gy,gz;
-  Wire.beginTransmission(MPU6050_ADDR);
-  Wire.write(0x3B); //Direccion del primer registro de datos
-  Wire.endTransmission(false);
-  Wire.requireForm(MPU6050_ADDR, 14, true); //14 registro de lectura
-  ax = Wire.read() << 8 | Wire.read();
-  ay = Wire.read() << 8 | Wire.read();
-  az = Wire.read() << 8 | Wire.read();
-  gx = Wire.read() << 8 | Wire.read();
-  gy = Wire.read() << 8 | Wire.read();
-  gz = Wire.read() << 8 | Wire.read();
+//Task1code: check the MPU6050 And control arms
+void Task1code( void * pvParameters ){
+  Serial.print("Task1 started on core ");
+  Serial.println(xPortGetCoreID());
 
-  //Guardar datos en archivo CSV (Se usara una libreria en Python llamda Pandas para leer los datos y encontrar tendencia y talvez implementar una IA para optimizar los angulos)
-  saveDataToCSV(ax,ay,ax,gx,gy,gz);
+  for(;;){
+ //   Serial.print("Task1 running on core ");
+ //   Serial.println(xPortGetCoreID());
+    MPU1();
+    delay(100);
+    MPU2();
+    delay(100);
+/*
+XG1 = g.gyro.x;
+YG1 = g.gyro.y;
+ZG1 = g.gyro.z;
+    AdvMoveAbsA(20,10,P6+YG1,P7-YG1,P8+XG1,P9,P10,P11-XG1,P12,P13);
+    delay(2500);*/
+  } 
+}
 
-  // Verificar si hay datos disponibles en el puerto serial
+//Task2code: check the bluetooth and calculate cinemaatic
+void Task2code( void * pvParameters ){
+  Serial.print("Task2 started on core ");
+  Serial.println(xPortGetCoreID());
+
+  for(;;){
+ //   Serial.print("Task2 running on core ");
+ //   Serial.println(xPortGetCoreID());
   if (Serial.available() > 0) {
     String command = Serial.readStringUntil('\n');
     processCommand(command);
@@ -105,32 +214,26 @@ void loop() {
     String command = SerialBT.readStringUntil('\n');
     processCommand(command);
   }
+    /*
+    Serial.print(" ");
+    Serial.print("H");
+    Serial.print(" ");
+    delay(700);
+    Serial.println("L");
+    delay(700);*/
+  }
 }
+
+void loop() {
+  
+}
+
 //Convertir angulo a ancho de pulso del servo
 int angleToPulse(int ang) {
   int pulse = map(ang, 0, 180, servoMin, servoMax);
   return pulse;
 }
 
-void setInitialServoPositions() {
-    for (int i = 0; i < 14; i++) {
-        pwm.setPWM(i, 0, angleToPulse(posiciones[i])); //Utiliza el array posiciones
-    }
-    P0=posiciones[0];
-    P1=posiciones[1];
-    P2=posiciones[2];
-    P3=posiciones[3];
-    P4=posiciones[4];
-    P5=posiciones[5];
-    P6=posiciones[6];
-    P7=posiciones[7];
-    P8=posiciones[8];
-    P9=posiciones[9];
-    P10=posiciones[10];
-    P11=posiciones[11];
-    P12=posiciones[12];
-    P13=posiciones[13];
-}
 
 //Funcion de movimiento
 void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int time) {
@@ -151,46 +254,108 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
     for (int j = 0; j < count; j++) {
       int currentPulse = pulsesStart[j] + (pulseSteps[j] * i);
       pwm.setPWM(servos[j], 0, currentPulse);
+      Serial.print("M:");
+      Serial.print(servos[j]);
+      Serial.write(" ");
+      Serial.print("PWM:");
+      Serial.print(currentPulse);
+      Serial.write(" ");
     }
+    Serial.println();
+ //   Serial.print("Task2 running on core ");
+ //   Serial.println(xPortGetCoreID());
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
 }
 //Funcion de Movimiento avanzado (Absoluto)
 void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
-  int AbsAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+  int AbsAngles[] = {
+        validarAngulo(0, X0), validarAngulo(1, X1), validarAngulo(2, X2), validarAngulo(3, X3),
+        validarAngulo(4, X4), validarAngulo(5, X5), validarAngulo(6, X6), validarAngulo(7, X7),
+        validarAngulo(8, X8), validarAngulo(9, X9), validarAngulo(10, X10), validarAngulo(11, X11),
+        validarAngulo(12, X12), validarAngulo(13, X13)
+  };
   int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
- /* Serial.print(X0); //Diagnostic Mode
+
+/*  Serial.print(X0); //Diagnostic Mode
   Serial.println();
   for (int i = 0; i < CAM; i++) {
     Serial.print(startAngles[i]);
-    Serial.write(Str);
+    Serial.write("\t");
   }
   Serial.println();*/
   smoothMove(14, servos, startAngles, AbsAngles, time);
  // Array de Pulsos Iniciales y Finales
-    P0=X0;
-    P1=X1;
-    P2=X2;
-    P3=X3;
-    P4=X4;
-    P5=X5;
-    P6=X6;
-    P7=X7;
-    P8=X8;
-    P9=X9;
-    P10=X10;
-    P11=X11;
-    P12=X12;
-    P13=X13;
+    P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
+    P4 = AbsAngles[4]; P5 = AbsAngles[5]; P6 = AbsAngles[6]; P7 = AbsAngles[7];
+    P8 = AbsAngles[8]; P9 = AbsAngles[9]; P10 = AbsAngles[10]; P11 = AbsAngles[11];
+    P12 = AbsAngles[12]; P13 = AbsAngles[13];
 /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
     Serial.print(AbsAngles[i]);
-    Serial.write(Str);
+    Serial.write("\t");
+  }
+  Serial.println();*/
+}
+void AdvMoveAbsL(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5) {
+  
+  int AbsAngles[] = {
+        validarAngulo(0, X0), validarAngulo(1, X1), validarAngulo(2, X2), validarAngulo(3, X3),
+        validarAngulo(4, X4), validarAngulo(5, X5)
+  };
+  int startAngles[]={P0,P1,P2,P3,P4,P5};
+
+/*  Serial.print(X0); //Diagnostic Mode
+  Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    Serial.print(startAngles[i]);
+    Serial.write("\t");
+  }
+  Serial.println();*/
+  smoothMove(CAM2, servos2, startAngles, AbsAngles, time);
+ // Array de Pulsos Iniciales y Finales
+    P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
+    P4 = AbsAngles[4]; P5 = AbsAngles[5];
+/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(AbsAngles[i]);
+    Serial.write("\t");
+  }
+  Serial.println();*/
+}
+void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+  int AbsAngles[] = {
+        validarAngulo(6, X6), validarAngulo(7, X7),
+        validarAngulo(8, X8), validarAngulo(9, X9), validarAngulo(10, X10), validarAngulo(11, X11),
+        validarAngulo(12, X12), validarAngulo(13, X13)
+  };
+  int startAngles[]={P6,P7,P8,P9,P10,P11,P12,P13};
+
+/*  Serial.print(X0); //Diagnostic Mode
+  Serial.println();
+  for (int i = 0; i < CAM; i++) {
+    Serial.print(startAngles[i]);
+    Serial.write("\t");
+  }
+  Serial.println();*/
+  smoothMove(CAM3, servos3, startAngles, AbsAngles, time);
+ // Array de Pulsos Iniciales y Finales
+    P6 = AbsAngles[6]; P7 = AbsAngles[7];
+    P8 = AbsAngles[8]; P9 = AbsAngles[9]; P10 = AbsAngles[10]; P11 = AbsAngles[11];
+    P12 = AbsAngles[12]; P13 = AbsAngles[13];
+/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(AbsAngles[i]);
+    Serial.write("\t");
   }
   Serial.println();*/
 }
 //Funcion de Movimiento Avanzado (Relativo)
 void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
-  int RelAngles[]= {X0,X1,X2,X3,X4,X5,X6,X7,X8,X9,X10,X11,X12,X13};
+    int RelAngles[] = {
+        validarAngulo(0, P0 + X0), validarAngulo(1, P1 + X1), validarAngulo(2, P2 + X2),
+        validarAngulo(3, P3 + X3), validarAngulo(4, P4 + X4), validarAngulo(5, P5 + X5),
+        validarAngulo(6, P6 + X6), validarAngulo(7, P7 + X7), validarAngulo(8, P8 + X8),
+        validarAngulo(9, P9 + X9), validarAngulo(10, P10 + X10), validarAngulo(11, P11 + X11),
+        validarAngulo(12, P12 + X12), validarAngulo(13, P13 + X13)
+    };
   int startAngles[]={P0,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10,P11,P12,P13};
   //Serial.print(X0); //Diagnostic Mode
   //Serial.println();
@@ -206,23 +371,13 @@ void AdvMoveRel(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,in
     Serial.write(Str);
   }
   Serial.println();*/
-    P0=X0+P0;
-    P1=X1+P1;
-    P2=X2+P2;
-    P3=X3+P3;
-    P4=X4+P4;
-    P5=X5+P5;
-    P6=X6+P6;
-    P7=X7+P7;
-    P8=X8+P8;
-    P9=X9+P9;
-    P10=X10+P10;
-    P11=X11+P11;
-    P12=X12+P12;
-    P13=X13+P13;
+    P0 = RelAngles[0]; P1 = RelAngles[1]; P2 = RelAngles[2]; P3 = RelAngles[3];
+    P4 = RelAngles[4]; P5 = RelAngles[5]; P6 = RelAngles[6]; P7 = RelAngles[7];
+    P8 = RelAngles[8]; P9 = RelAngles[9]; P10 = RelAngles[10]; P11 = RelAngles[11];
+    P12 = RelAngles[12]; P13 = RelAngles[13];
 
 }
-
+/*
 void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, int16_t gz){
   File dataFile = SD.open("datos.csv", FILE_APPEND);
   if (dataFile){
@@ -243,46 +398,43 @@ void saveDataToCSV(int16_t ax, int16_t ay, int16_t ax, int16_t gx, int16_t gy, i
     Serial.println("Error al abrir el archivo")
   }
 }
-
+*/
 void processCommand(String command) {
   command.trim();  // Elimina espacios en blanco al inicio y al final
-  //Modificador de Velocidades
-  if (command.startsWith("T1:")) {
-    int newValue = command.substring(3).toInt(); // Extraer el valor después de "T1="
-    if (newValue > 0) {
-      t01 = newValue; // Actualizar el valor de t01
-    } else {
-    }
-    return;
-  }
- if (command.startsWith("T2:")) {
-    int newValue = command.substring(3).toInt(); // Extraer el valor después de "T1="
-    if (newValue > 0) {
-      t02 = newValue; // Actualizar el valor de t01
-    } else {
-    }
-    return;
-  }
-   if (command.startsWith("T3:")) {
-    int newValue = command.substring(3).toInt(); // Extraer el valor después de "T1="
-    if (newValue > 0) {
-      t03 = newValue; // Actualizar el valor de t01
-    } else {
-    }
-    return;
-  }
 
+ 
+//Editor de variables
+int separatorIndex = command.indexOf(':');
+  if (separatorIndex != -1) {
+    String variableName = command.substring(0, separatorIndex);
+    int newValue = command.substring(separatorIndex + 1).toInt();
+    setVariable(variableName, newValue);
+    return;
+  }
 // modo manual para mover los servos
-  if (command.startsWith("M")) {
-    int nV = command.substring(1).toInt(); // Extrae
-    int nP = command.substring(3).toInt(); 
-    if (nV >= 0) {
-        M = nV; // Actualizar el valor 
-        P = nP;
+if (command.startsWith("M")) {
+    int separatorIndex = command.indexOf(","); // Busca la posición de la coma
+    if (separatorIndex != -1) { // Si se encuentra una coma en el comando
+        int nV = command.substring(1, separatorIndex).toInt(); // Extrae el valor del motor
+        int nP = command.substring(separatorIndex + 1).toInt(); // Extrae el ángulo
+
+        if (nV >= 0) { // Verifica que el número de motor sea válido
+            M = nV; // Actualiza el número de motor
+            P = nP; // Actualiza el ángulo
+
+            pwm.setPWM(M, 0, angleToPulse(P)); // Envía el comando PWM
+
+            Serial.print("Motor number: ");
+            Serial.println(M);
+            Serial.print("to: ");
+            Serial.println(P);
+        } else {
+            Serial.println("Invalid motor number.");
+        }
     } else {
+        Serial.println("Invalid command format.");
     }
-    pwm.setPWM(M, 0, angleToPulse(P));
-return;
+    return;
 }
   // Dividir el comando por ';'
   int startIndex = 0;
@@ -307,24 +459,28 @@ setInitialServoPositions();
 }
 
 if (command.startsWith("caminar")) {
-    derecha();
+    derecha2();
     delay(1000);
-    derecha();
+    derecha2();
     delay(1000);
-    izquierda();
     delay(10);
 }
-if (command.startsWith("izquierdo")) {
-    izquierda();
+if (command.startsWith("in1leg")) {
+ leg_1();
+}
+if (command.startsWith("cinematic")) {
+  //cinematica
+    takeStep(Length, t01);
+    Serial.println("caminando");
+}
+if (command.startsWith("prepare")) {
+  //cinematica
+    initialize();
 }
 if (command.startsWith("derecha")) {
-    derecha();
+   derecha2();
 }
-if (command.startsWith("girar")) {
-    girar();
 }
-if (command.startsWith("sentar")) {
-    sentar();
 /* 
    delay (5000);
    int servos02[] = { 0, 1, 2, 3, 4, 5, 6, 7,8,9, 10, 11, 12, 13};
@@ -332,98 +488,182 @@ if (command.startsWith("sentar")) {
    int endAngles02[] = {V0, V1, V2, V3, V4, V5 ,V6, V7, V8, V9, V10, V11, V12, V13};
    smoothMove(14, servos02, startAngles02, endAngles02, 30);
 */
-}
 
-}
+
+
 //Secuencias de Movimiento
-void sentar(){
-  delay(1000);
-    int servos00[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13 };
-    int startAngles00[] = {posiciones[0], posiciones[1], posiciones[2], posiciones[3], posiciones[4], posiciones[5], posiciones[6], posiciones[7], posiciones[8], posiciones[9], posiciones[10], posiciones[11], posiciones[12], posiciones[13]};
-    int endAngles00[] = { 25, 30, 180, 165, 160, 5, 1, 179, 135, 70, 90, 45, 110, 90 };
-    smoothMove(14, servos00, startAngles00, endAngles00, t01);
-}
-void izquierda(){
-    int servos06[] = { 4, 5, 0, 6};
-    int startAngles06[] = {130, 95, 28, 20};
-    int endAngles06[] = { 160, 65, 20, 45};
-    smoothMove(4, servos06, startAngles06, endAngles06, t01);
-
-    int servos07[] = { 5, 2, 3 };
-    int startAngles07[] = {65, 93, 155};
-    int endAngles07[] = { 45, 98, 145};
-    smoothMove(3, servos07, startAngles07, endAngles07, t01);
-
-    int servos08[] = { 4, 3};
-    int startAngles08[] = {155, 145};
-    int endAngles08[] = { 135, 130};
-    smoothMove(2, servos08, startAngles08, endAngles08, t01);
-
-    int servos09[] = { 5, 3, 0 };
-    int startAngles09[] = {45, 130, 20};
-    int endAngles09[] = { 55, 140, 15 };
-    smoothMove(3, servos09, startAngles09, endAngles09, t03);
-
-    int servos10[] = { 5, 3, 4, 2, 0, 6};
-    int startAngles10[] = {55, 140, 135, 98, 15, 45};
-    int endAngles10[] = { 85, 155, 130, 93, 35, 0};
-    smoothMove(6, servos10, startAngles10, endAngles10,t03);
-    delay(20);
-    pwm.setPWM(0, 0, angleToPulse(posiciones[1]));
-    delay(200);
-
+void setInitialServoPositions() {
+   AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
 
-void derecha () {
-    int servos01[] = { 1, 2, 3, 7 };
-    int startAngles01[] = {55, 93, 155, 160};
-    int endAngles01[] = { 25, 123, 160, 155 };
-    smoothMove(4, servos01, startAngles01, endAngles01, t01);
-
-    int servos02[] = { 2, 5, 0, 6};
-    int startAngles02[] = {123, 95, 28, 20};
-    int endAngles02[] = { 143, 90, 35, 90};
-    smoothMove(4, servos02, startAngles02, endAngles02, t01);
-
-    int servos03[] = { 1, 0, 6};
-    int startAngles03[] = {25, 35, 90};
-    int endAngles03[] = { 45, 50, 70};
-    smoothMove(3, servos03, startAngles03, endAngles03, t01);
-
-    int servos04[] = { 2, 0, 3, 6};
-    int startAngles04[] = {143, 50, 160, 70};
-    int endAngles04[] = { 133, 50, 165, 50};
-    smoothMove(4, servos04, startAngles04, endAngles04, t02);
-
-    int servos05[] =      {2, 0, 1, 5, 3, 7, 6};
-    int startAngles05[] = {123, 50, 45, 90, 165, 155, 50};
-    int endAngles05[] =   {93, 28, 50, 95, 155, 160, 20};
-    smoothMove(7, servos05, startAngles05, endAngles05, t02);
+void derecha2 () {
+AdvMoveRel(20,10,0,-30,30,5,0,0,0,-5,0,0,0,0,0,0);
+delay(100);
+AdvMoveRel(20,10,7,0,20,0,0,5,70,0,0,0,0,0,0,0);
+delay(100);
+AdvMoveRel(20,10,15,20,0,0,0,0,-20,0,0,0,0,0,0,0);
+delay(100);
+}
+void leg_1 () {
+AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
 }
 
-void girar () {
-    int servos01[] = { 1, 2, 3, 7 };
-    int startAngles01[] = {55, 93, 155, 160};
-    int endAngles01[] = { 25, 123, 160, 155 };
-    smoothMove(4, servos01, startAngles01, endAngles01, t01);
+//cinematica
+void updateServoPos(int target1, int target2, int target3, char leg){
+  if (leg == 'l'){
+    AdvMoveAbsL(t01,10,P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03);
 
-    int servos02[] = { 2, 5, 0, 6};
-    int startAngles02[] = {123, 95, 28, 20};
-    int endAngles02[] = { 143, 90, 35, 90};
-    smoothMove(4, servos02, startAngles02, endAngles02, t01);
+  }
+  else if (leg == 'r'){ 
+    AdvMoveAbsL(t01,10, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5);
+    
+  }
+}
 
-    int servos03[] = { 1, 0, 6};
-    int startAngles03[] = {25, 35, 90};
-    int endAngles03[] = { 45, 50, 70};
-    smoothMove(3, servos03, startAngles03, endAngles03, t01);
+void pos(float x, float z, char leg){
+  float hipRad2 = atan(x/z);
+  float hipDeg2 = hipRad2 * (180/PI);
 
-    int servos04[] = { 2, 0, 3, 6};
-    int startAngles04[] = {143, 50, 160, 70};
-    int endAngles04[] = { 133, 50, 165, 50};
-    smoothMove(4, servos04, startAngles04, endAngles04, 15);
+  float z2 = z/cos(hipRad2);
 
-    int servos05[] =      {2, 0, 1, 5, 3, 7, 6};
-    int startAngles05[] = {123, 50, 45, 90, 165, 155, 50};
-    int endAngles05[] =   {93, 28, 50, 95, 155, 160, 20};
-    smoothMove(7, servos05, startAngles05, endAngles05, 15);
+  float hipRad1 = acos((sq(l1) + sq(z2) - sq(l2))/(2*l1*z2));
+  float hipDeg1 = hipRad1 * (180/PI);
+  
+  float kneeRad = PI - acos((sq(l1) + sq(l2) - sq(z2))/(2*l1*l2));
+
+  float ankleRad = PI/2 + hipRad2 - acos((sq(l2) + sq(z2) - sq(l1))/(2*l2*z2));
+  
+  float hipDeg = hipDeg1 + hipDeg2;
+  float kneeDeg = kneeRad * (180/PI);
+  float ankleDeg = ankleRad * (180/PI);
+/*
+  Serial.print(leg);
+  Serial.print("\t");
+  Serial.print(ankleDeg);
+  Serial.print("\t");
+  Serial.print(kneeDeg);
+  Serial.print("\t");
+  Serial.print(hipDeg);
+  Serial.print("\t");
+*/
+  updateServoPos(hipDeg, kneeDeg, ankleDeg, leg);  
+}
+
+void takeStep(float stepLength, int stepVelocity){
+  for (float i = stepLength; i >= -stepLength; i-=0.5){
+    pos(i, stepHeight, 'r');
+    pos(-i, stepHeight - stepClearance, 'l');
+    delay(stepVelocity);
+  }
+
+  for (float i = stepLength; i >= -stepLength; i-=0.5){
+    pos(-i, stepHeight - stepClearance, 'r');
+    pos(i, stepHeight, 'l');
+    delay(stepVelocity);
+  }
+}
+void initialize(){
+  long Fleg;
+  Fleg = l1 + l2;
+  for (float i = Fleg; i >= stepHeight; i-=0.5){
+    pos(0, i, 'l');
+    pos(0, i, 'r');
+  }
+}
+//Editor de variables
+void setVariable(String variableName, int newValue) {
+  // Actualizar variables individuales
+  if (variableName == "T1") {
+    t01 = newValue;
+    Serial.print("T1  updated:");
+    Serial.println(t01);
+  } else if (variableName == "T2") {
+    t02 = newValue;
+  } else if (variableName == "T3") {
+    t03 = newValue;
+  } else if (variableName == "K1") {
+    k01 = newValue;
+  } else if (variableName == "K2") {
+    k02 = newValue;
+  } else if (variableName == "K3") {
+    k03 = newValue;
+  } else if (variableName == "l1") {
+    l1 = newValue;
+  } else if (variableName == "l2") {
+    l2 = newValue;
+    Serial.print("L2  updated:");
+    Serial.println(l2);
+  } else if (variableName == "stepClearance") {
+    stepClearance = newValue;
+  } else if (variableName == "stepHeight") {
+    stepHeight = newValue;
+  } else if (variableName == "Length") {
+    Length = newValue;
+  } else if (variableName == "steps") {
+    steps = newValue;
+  } else if (variableName.startsWith("P")) { // Variables P
+    int index = variableName.substring(1).toInt();
+    if (index >= 0 && index < 14) {
+      int *pointers[] = { &P0, &P1, &P2, &P3, &P4, &P5, &P6, &P7, &P8, &P9, &P10, &P11, &P12, &P13 };
+      *pointers[index] = newValue;
+    }
+  } else if (variableName.startsWith("posiciones[")) { // Array posiciones
+    int startIdx = variableName.indexOf('[') + 1;
+    int endIdx = variableName.indexOf(']');
+    int index = variableName.substring(startIdx, endIdx).toInt();
+    if (index >= 0 && index < 14) {
+      posiciones[index] = newValue;
+    }
+  }
+}
+//verificador de angulos 
+int validarAngulo(int servoID, int anguloSolicitado) {
+    int minAngulo = min(limitesA[servoID], limitesB[servoID]);
+    int maxAngulo = max(limitesA[servoID], limitesB[servoID]);
+
+    // Si el ángulo está fuera del rango, ajustarlo al límite más cercano
+    if (anguloSolicitado < minAngulo) {
+        return minAngulo;
+    } else if (anguloSolicitado > maxAngulo) {
+        return maxAngulo;
+    }
+    return anguloSolicitado;
+}
+void MPU1(){
+    sensors_event_t a, g, temp;
+    mpu1.getEvent(&a, &g, &temp);
+    //diagnostic Mode
+  //  Serial.print("Task1 running on core ");
+  //  Serial.println(xPortGetCoreID());
+    Serial.print("Gyroscope 1 ");
+    Serial.print("X: ");
+    Serial.print(g.gyro.x, 1);
+    Serial.print(" rps, ");
+    Serial.print("Y: ");
+    Serial.print(g.gyro.y, 1);
+    Serial.print(" rps, ");
+    Serial.print("Z: ");
+    Serial.print(g.gyro.z, 1);
+    Serial.println(" rps");
+    delay(100);
+    return;
+}
+void MPU2(){
+    sensors_event_t a, g, temp;
+    mpu2.getEvent(&a, &g, &temp);
+    //diagnostic Mode
+  //  Serial.print("Task1 running on core ");
+  //  Serial.println(xPortGetCoreID());
+    Serial.print("Gyroscope 2 ");
+    Serial.print("X: ");
+    Serial.print(g.gyro.x, 1);
+    Serial.print(" rps, ");
+    Serial.print("Y: ");
+    Serial.print(g.gyro.y, 1);
+    Serial.print(" rps, ");
+    Serial.print("Z: ");
+    Serial.print(g.gyro.z, 1);
+    Serial.println(" rps");
+    delay(100);
+    return;
 }

@@ -496,7 +496,7 @@ if (command.startsWith("firmes")) {
 }
 
 if (command.startsWith("empyric")) {
- leg_1();
+ step();
 }
 if (command.startsWith("cinematic")) {
   //cinematica
@@ -553,7 +553,7 @@ void getup {
    AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
 */
-void leg_1 () {
+void step () {
 AdvMoveAbsL(20,10,30,105,75,P3,P4,P5,105,P11);
 }
 

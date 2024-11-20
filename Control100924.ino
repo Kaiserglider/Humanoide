@@ -21,13 +21,13 @@ uint16_t servoMax = 3400;  // Pulso "máximo" para el servomotor
 //definicion del bluetooth
 BluetoothSerial SerialBT;
 String device_name = "Dorado";
-
+//5-140
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 //Definir Variables de posiciones Iniciales
-int posiciones[14] = {45, 140, 90, 130, 40, 91, 20, 160, 160, 100, 90, 20, 80, 90};
-int limitesA[14]= {0, 30, 0, 50, 0, 50, 0, 0, 0, 0, 0, -5, 0, 0};
-int limitesB[14]= {130, 180, 130, 180, 150, 180, 180, 180, 195, 180, 180, 180, 180, 180};
+int posiciones[14] = {45, 135, 90, 130, 40, 85, 90, 90, 90, 170, 90, 86, 5, 90}; //M7  y M 12 CERO EN 90 
+int limitesA[14]= {0, 30, 0, 100, 0, 50, 0, 0, 60, 0, 0, 60, 0, 0};
+int limitesB[14]= {80, 180, 130, 180, 150, 180, 180, 180, 110, 180, 180, 110, 180, 180};
 int Recto[9]= {40,130,80,100,90,85,90,85};
 int C1[8]= {40,110,80,100,90,-5,80,90};
 int Ladeado[9]= {60,110,195,100,90,-5,80,90};
@@ -47,6 +47,7 @@ int P10 = 90;
 int P11 = 20;
 int P12 = 80;
 int P13 = 90; 
+int R11 = 105;
 //Definir variable para control AdvMove
 int servos[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13};
 int CAM=13;
@@ -110,10 +111,6 @@ void setup() {
   pwm.begin();
   pwm.setPWMFreq(330);
   setInitialServoPositions();
-  for (int i = 0; i < 9; i++) { //Diagnostic Mode
-     Dif1[i]=C1[i]-posiciones[i+6];
-     Dif2[i]=C2[i]-posiciones[i+6];
-  }
 // inicialisamos giroscopio/s
  Serial.println("Adafruit MPU6050 test!");
 
@@ -171,7 +168,7 @@ void Core0( void * pvParameters ){
         }
         // Evaluar si es necesario activar el equilibrio
         if (contB > 50 && !equilibrioActivo) {
-            verificarGiroscopio(angleZ);
+ //           verificarGiroscopio(angleZ);
  //           verificarGiroscop(angleY);
 
             contB = 0;
@@ -498,7 +495,7 @@ if (command.startsWith("firmes")) {
      angleZ= 0;
 }
 
-if (command.startsWith("in1leg")) {
+if (command.startsWith("empyric")) {
  leg_1();
 }
 if (command.startsWith("cinematic")) {
@@ -550,9 +547,14 @@ if (command.startsWith("prepare")) {
 void setInitialServoPositions() {
    AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
-
+/*
+void getup {
+   AdvMoveAbsL(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);  
+   AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
+}
+*/
 void leg_1 () {
-AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
+AdvMoveAbsL(20,10,30,105,75,P3,P4,P5,105,P11);
 }
 
 void cinematic2 () {

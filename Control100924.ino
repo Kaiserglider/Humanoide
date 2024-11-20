@@ -50,17 +50,19 @@ int P13 = 90;
 //Definir variable para control AdvMove
 int servos[]={0,1,2,3,4,5,6,7,8,9,10,11,12,13};
 int CAM=13;
-int servos2[]={0,1,2,3,4,5};
-int CAM2=6;
-int servos3[]={6,7,8,9,10,11,12,13};
-int CAM3=8;
+int servos2[]={0,1,2,3,4,5,8,11};
+int CAM2=8;
+int servos3[]={6,7,9,10,12,13};
+int CAM3=6;
 //Definir tiempos
 int t01 = 50;
 int t02 = 10;
 int t03 = 35;
 int t04 = 15;
 int t05 = 25;
-int t06 = 100;     // Tiempo de retraso entre movimientos
+int t06 = 100;  
+int t07 = 100;
+int t08 = 100;   
 //int steps = 10;  // Número de pasos para suavizar el movimiento
 //Variables para control manual de motores
 int N = 100;
@@ -250,7 +252,7 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
 }
-void fastMove(int count, int servos[], int startAngles[], int endAngles[], int time) {
+void fastMove(int count, int servos[], int endAngles[], int time) { //, int startAngles[]
   //Array de Pulsos Iniciales y Finales
   int pulsesEnd[count];
 
@@ -304,38 +306,13 @@ void AdvMoveAbs(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5,in
   }
   Serial.println();*/
 }
-void AdvMoveAbsL(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5) {
+void AdvMoveAbsL(int time, int steps,int X0,int X1,int X2,int X3,int X4,int X5, int X8, int X11) {
   
   int AbsAngles[] = {
         validarAngulo(0, X0), validarAngulo(1, X1), validarAngulo(2, X2), validarAngulo(3, X3),
-        validarAngulo(4, X4), validarAngulo(5, X5)
+        validarAngulo(4, X4), validarAngulo(5, X5), validarAngulo(8, X8), validarAngulo(11, X11)
   };
-  int startAngles[]={P0,P1,P2,P3,P4,P5};
-
-/*  Serial.print(X0); //Diagnostic Mode
-  Serial.println();
-  for (int i = 0; i < CAM; i++) {
-    Serial.print(startAngles[i]);
-    Serial.write("\t");
-  }
-  Serial.println();*/
-  smoothMove(CAM2, servos2, startAngles, AbsAngles, time,steps);
- // Array de Pulsos Iniciales y Finales
-    P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
-    P4 = AbsAngles[4]; P5 = AbsAngles[5];
-/*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
-    Serial.print(AbsAngles[i]);
-    Serial.write("\t");
-  }
-  Serial.println();*/
-}
-void AdvMoveAbsLF(int time, int X0,int X1,int X2,int X3,int X4,int X5) {
-  
-  int AbsAngles[] = {
-        validarAngulo(0, X0), validarAngulo(1, X1), validarAngulo(2, X2), validarAngulo(3, X3),
-        validarAngulo(4, X4), validarAngulo(5, X5)
-  };
-  int startAngles[]={P0,P1,P2,P3,P4,P5};
+  int startAngles[]={P0,P1,P2,P3,P4,P5,P8,P11};
 
 //  Serial.print(X0); //Diagnostic Mode
 //  Serial.println();
@@ -346,23 +323,51 @@ void AdvMoveAbsLF(int time, int X0,int X1,int X2,int X3,int X4,int X5) {
     Serial.write("\t");
   }
   Serial.println();
-  fastMove(CAM2, servos2, startAngles, AbsAngles, time);
+
+  smoothMove(CAM2, servos2, startAngles, AbsAngles, time,steps);
  // Array de Pulsos Iniciales y Finales
     P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
-    P4 = AbsAngles[4]; P5 = AbsAngles[5];
+    P4 = AbsAngles[4]; P5 = AbsAngles[5]; P8 = AbsAngles[6]; P11 = AbsAngles[7]; 
+   /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
+    Serial.print(AbsAngles[i]);
+    Serial.write("\t");
+  }
+  Serial.println();*/
+}
+void AdvMoveAbsLF(int time, int X0,int X1,int X2,int X3,int X4,int X5,int X8, int X11) {
+  
+  int AbsAngles[] = {
+        validarAngulo(0, X0), validarAngulo(1, X1), validarAngulo(2, X2), validarAngulo(3, X3),
+        validarAngulo(4, X4), validarAngulo(5, X5), validarAngulo(8, X8), validarAngulo(11, X11)
+  };
+//  int startAngles[]={P0,P1,P2,P3,P4,P5,P8,P11};
+
+//  Serial.print(X0); //Diagnostic Mode
+//  Serial.println();
+  for (int i = 0; i < CAM2; i++) {
+    Serial.print(servos2[i]);
+    Serial.print(" ");
+    Serial.print(AbsAngles[i]);
+    Serial.write("\t");
+  }
+  Serial.println();
+  fastMove(CAM2, servos2, AbsAngles, time); // startAngles,
+ // Array de Pulsos Iniciales y Finales
+    P0 = AbsAngles[0]; P1 = AbsAngles[1]; P2 = AbsAngles[2]; P3 = AbsAngles[3];
+    P4 = AbsAngles[4]; P5 = AbsAngles[5]; P8 = AbsAngles[6]; P11 = AbsAngles[7]; 
 /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
     Serial.print(AbsAngles[i]);
     Serial.write("\t");
   }
   Serial.println();*/
 }
-void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11,int X12,int X13) {
+void AdvMoveAbsA(int time, int steps,int X6,int X7,int X9,int X10,int X12,int X13) {
   int AbsAngles[] = {
         validarAngulo(6, X6), validarAngulo(7, X7),
-        validarAngulo(8, X8), validarAngulo(9, X9), validarAngulo(10, X10), validarAngulo(11, X11),
+        validarAngulo(9, X9), validarAngulo(10, X10),
         validarAngulo(12, X12), validarAngulo(13, X13)
   };
-  int startAngles[]={P6,P7,P8,P9,P10,P11,P12,P13};
+  int startAngles[]={P6,P7,P9,P10,P11,P12,P13};
 
 //  Serial.print(X0); //Diagnostic Mode
 //  Serial.println();
@@ -373,9 +378,8 @@ void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11
   Serial.println();
   smoothMove(CAM3, servos3, startAngles, AbsAngles, time, steps);
  // Array de Pulsos Iniciales y Finales
-    P6 = AbsAngles[6]; P7 = AbsAngles[7];
-    P8 = AbsAngles[8]; P9 = AbsAngles[9]; P10 = AbsAngles[10]; P11 = AbsAngles[11];
-    P12 = AbsAngles[12]; P13 = AbsAngles[13];
+    P6 = AbsAngles[6]; P7 = AbsAngles[7];  P9 = AbsAngles[8]; 
+    P10 = AbsAngles[9]; P12 = AbsAngles[10]; P13 = AbsAngles[11];
 /*for (int i = 0; i < CAM; i++) { //Diagnostic Mode
     Serial.print(AbsAngles[i]);
     Serial.write("\t");
@@ -550,6 +554,7 @@ AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
 }
 
 void cinematic2 () {
+/*
 AdvMoveAbsLF(t04,27,97,54,130,40,91);
 delay(t05);
 AdvMoveAbsLF(t04,27,97,54,180,115,119);
@@ -651,28 +656,28 @@ delay(t05);
 AdvMoveAbsLF(t04,12,65,38,168,85,108);
 delay(t05);
 AdvMoveAbsLF(t04,12,65,38,169,83,106);
-delay(t05);
+delay(t05);*/
 }
 //cinematica
 
 //cinematica
 void updateServoPos(int target1, int target2, int target3, char leg){
   if (leg == 'l'){
-    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03);
+    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03, P8, P11);
 
   }
   else if (leg == 'r'){ 
-    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5);
+    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5, P8, P11);
     
   }
 }
 void updateServoPosB(int target1, int target2, int target3, char leg){
   if (leg == 'l'){
-    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k04);
+    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k04, P8, P11);
 
   }
   else if (leg == 'r'){ 
-    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k04,P3,P4,P5);
+    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k04,P3,P4,P5, P8, P11);
     
   }
 }
@@ -772,6 +777,10 @@ void setVariable(String variableName, int newValue) {
     t05 = newValue;
   } else if (variableName == "T6") {
     t06 = newValue;
+  } else if (variableName == "T7") {
+    t07 = newValue;
+  } else if (variableName == "T8") {
+    t08 = newValue;
   } else if (variableName == "K1") {
     k01 = newValue;
   } else if (variableName == "K2") {
@@ -901,8 +910,8 @@ void activarSecuenciaEquilibrio(bool haciaAdelante) {
         Jam1 = 1;
         Jam2 = 0;
         Jam3 = 0;
-        AdvMoveAbsA(20, 10, Recto[0], Ladeado[1], Recto[2],
-                    Recto[3],Recto[4], Ladeado[5],
+        AdvMoveAbsA(t07, 10, Recto[0], Ladeado[1],
+                    Recto[3], Recto[4], 
                     Ladeado[6], Ladeado[7]);
     } else {
         /*for (int i = 0; i < 9; i++) {
@@ -912,13 +921,13 @@ void activarSecuenciaEquilibrio(bool haciaAdelante) {
         Jam1 = 0;
         Jam2 = 1;
         Jam3 = 0;
-        AdvMoveAbsA(t01, 10, Ladeado[0], Recto[1], Ladeado[2],
-                    Ladeado[3], Ladeado[4], Recto[5],
+        AdvMoveAbsA(t07, 10, Ladeado[0], Recto[1], 
+                    Ladeado[3], Ladeado[4], 
                     Recto[6],Recto[7]);
     }
 
     // Finalizar el equilibrio después de un pequeño retraso
-    delay(50);  // Ajustar según el tiempo de movimiento necesario
+    delay(t08);  // Ajustar según el tiempo de movimiento necesario
     secuenciaActivada = false;
     equilibrioActivo = false;  // Restablecer el estado
 }
@@ -931,12 +940,12 @@ void activarSecuencia() {
     Jam1 = 0;
     Jam2 = 0;
     Jam3 = 1;
-    AdvMoveAbsA(t01, 10, posiciones[6], posiciones[7], posiciones[8],
-                posiciones[9], posiciones[10], posiciones[11],
+    AdvMoveAbsA(t07, 10, posiciones[6], posiciones[7],
+                posiciones[9], posiciones[10], 
                 posiciones[12], posiciones[13]);
 
     // Finalizar el equilibrio después de un pequeño retraso
-    delay(50);  // Ajustar según el tiempo de movimiento necesario
+    delay(t08);  // Ajustar según el tiempo de movimiento necesario
     equilibrioActivo = false;  // Restablecer el estado
 }
 void calibrateGyro(int samples) {
@@ -965,4 +974,3 @@ void calibrateGyro(int samples) {
   Serial.print(", Z: ");
   Serial.println(gyroZ_offset);
 }
-

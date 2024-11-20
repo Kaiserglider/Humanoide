@@ -10,14 +10,10 @@
 #define PCA9685_ADDR 0x40  // Dirección I2C del PCA9685
 //definimos giroscopio y variables
 Adafruit_MPU6050 mpu;
-float XG1 = 0;
-float YG1 = 0;
-float ZG1 = 0;
-
-float ref = 0.15;
-
 int contG = 0;
-//float E = 0.1;
+float angleX = 0, angleY = 0, angleZ = 0; // Acumuladores de ángulos
+float gyroX_offset = 0, gyroY_offset = 0, gyroZ_offset = 0; // Offsets del giroscopio
+unsigned long previousTime = 0; // Tiempo anterior para calcular deltaTime
 //valores min y maximos del pulso
 Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(PCA9685_ADDR);
 uint16_t servoMin = 500;   // Pulso "mínimo" para el servomotor
@@ -59,12 +55,14 @@ int CAM2=6;
 int servos3[]={6,7,8,9,10,11,12,13};
 int CAM3=8;
 //Definir tiempos
-int t01 = 20;
+int t01 = 50;
 int t02 = 10;
 int t03 = 35;
-int t04 = 0;
-int t05 = 15;
-int t06 = 50;     // Tiempo de retraso entre movimientos
+int t04 = 15;
+int t05 = 25;
+int t06 = 100;  
+int t07 = 100;
+int t08 = 100;   
 //int steps = 10;  // Número de pasos para suavizar el movimiento
 //Variables para control manual de motores
 int N = 100;
@@ -79,8 +77,8 @@ int stepHeight=16;
 
 int k01=10;
 int k02=10;
-int k03=10;
-
+int k03=-15;
+int k04=10;
 int Length=3;
 //Control Brazos
 int Dif1[8];
@@ -92,6 +90,11 @@ bool equilibrioActivo = false;
 float referenciaGiro = 0;  // Puede ser XG1, YG1, o ZG1
 int Jam1 = 0;
 int Jam2 = 0;
+int Jam3 = 0;
+int FC = 10 ;
+int FG = 5 ;
+bool secuenciaActivada = false;
+
 
 void setup() {
   //Inicialisamos Bluetooth
@@ -104,12 +107,6 @@ void setup() {
   }
   
   //inicialisamos PWM y valores iniciales
-if (!mpu.begin(0x68)) {
-  Serial.println("Sensor 1 init failed");
-  while (1)
-    yield();
-}
-Serial.println("MPU6050 Found!");
   pwm.begin();
   pwm.setPWMFreq(330);
   setInitialServoPositions();
@@ -118,25 +115,24 @@ Serial.println("MPU6050 Found!");
      Dif2[i]=C2[i]-posiciones[i+6];
   }
 // inicialisamos giroscopio/s
+ Serial.println("Adafruit MPU6050 test!");
 
+  if (!mpu.begin()) {
+    Serial.println("Failed to find MPU6050 chip");
+    while (1) {
+      delay(10);
+    }
+  }
+  Serial.println("MPU6050 Found!");
 
-mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
-mpu.setGyroRange(MPU6050_RANGE_500_DEG);
-Serial.print("Gyro range set to: ");
-switch (mpu.getGyroRange()) {
-case MPU6050_RANGE_250_DEG:
-  Serial.println("+- 250 deg/s");
-  break;
-case MPU6050_RANGE_500_DEG:
-  Serial.println("+- 500 deg/s");
-  break;
-case MPU6050_RANGE_1000_DEG:
-  Serial.println("+- 1000 deg/s");
-  break;
-case MPU6050_RANGE_2000_DEG:
-  Serial.println("+- 2000 deg/s");
-  break;
-}
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+  delay(100);
+  calibrateGyro(1000); // Calibrar giroscopio con 100 muestras
+
+  previousTime = millis();
   //inicialisamos nucleo 0
   xTaskCreatePinnedToCore(
                     Core0,   /* Task function. */
@@ -161,38 +157,42 @@ case MPU6050_RANGE_2000_DEG:
 }
 
 //Task1code: check the MPU6050 And control arms
-void Core0( void * pvParameters ){
- Serial.print("Task1 started on core ");
+void Core0(void *pvParameters) {
+    Serial.print("Task1 started on core ");
     Serial.println(xPortGetCoreID());
 
+    unsigned long lastUpdateG = millis(); // Para la actualización del giroscopio
+    unsigned long lastUpdateV = millis(); // Para la verificación del giroscopio
+    unsigned long lastUpdateFor = millis(); // Para el ciclo del for
+
     for (;;) {
-        contG++;
-        contB++;
+        unsigned long currentTime = millis();
 
-        // Monitorear el giroscopio
-        if (contG > 50 && !equilibrioActivo) {
+        // Monitorear el giroscopio cada 50 ms
+        if (currentTime - lastUpdateG >= 50 && !equilibrioActivo) {
             MPU1();  // Actualizar valores del giroscopio
-            contG = 0;
-            /*
-            Serial.print("Giroscopio: ");
-            Serial.print("X: ");
-            Serial.print(XG1, 5);
-            Serial.print(" Y: ");
-            Serial.print(YG1, 5);
-            Serial.print(" Z: ");
-            Serial.println(ZG1, 5);
-*/
+            lastUpdateG = currentTime; // Reiniciar el temporizador para giroscopio
         }
 
-        // Evaluar si es necesario activar el equilibrio
-        if (contB > 50 && !equilibrioActivo) {
-            verificarGiroscopio(ZG1);
-            contB = 0;
+        // Verificar el giroscopio cada 50 ms
+        if (currentTime - lastUpdateV >= 50 && !equilibrioActivo) {
+            verificarGiroscopio(angleZ);  // Ejecutar la función de verificación del giroscopio
+            lastUpdateV = currentTime; // Reiniciar el temporizador para verificar el giroscopio
         }
 
-        delay(1);  // Evitar sobrecarga
+        // Ejecutar el ciclo del for cada 1 ms
+        if (currentTime - lastUpdateFor >= 1) {
+            // Aquí va el código que deseas ejecutar cada 1 ms
+            // Puedes colocar la lógica adicional que necesitas que se ejecute frecuentemente
+
+            lastUpdateFor = currentTime; // Reiniciar el temporizador para el ciclo for
+        }
+
+        // Llamar a `vTaskDelay` brevemente para ceder tiempo a otras tareas
+        vTaskDelay(1 / portTICK_PERIOD_MS);  // Esto hace que el ciclo se ejecute cada 1 ms
     }
-  } 
+}
+
 
 
 //Task2code: check the bluetooth and calculate cinemaatic
@@ -236,34 +236,41 @@ int angleToPulse(int ang) {
 
 //Funcion de movimiento
 void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int time, int steps) {
-  //Array de Pulsos Iniciales y Finales
+  // Array de Pulsos Iniciales y Finales
   int pulsesStart[count];
   int pulsesEnd[count];
   int pulseSteps[count];
 
-  //Calcula el pulso inicial, final y paso para cada servo
+  // Calcula el pulso inicial, final y paso para cada servo
   for (int i = 0; i < count; i++) {
     pulsesStart[i] = angleToPulse(startAngles[i]);
     pulsesEnd[i] = angleToPulse(endAngles[i]);
     pulseSteps[i] = (pulsesEnd[i] - pulsesStart[i]) / steps;
   }
 
-  //Mueve los servos en pasos
-  for (int i = 0; i <= steps; i++) {
-    for (int j = 0; j < count; j++) {
-      int currentPulse = pulsesStart[j] + (pulseSteps[j] * i);
-      pwm.setPWM(servos[j], 0, currentPulse);
- /*     Serial.print("M:");
-      Serial.print(servos[j]);
-      Serial.write(" ");
-      Serial.print("PWM:");
-      Serial.print(currentPulse);
-      Serial.write(" ");*/
+  unsigned long lastUpdateTime = millis(); // Marca de tiempo inicial
+  int currentStep = 0; // Paso actual
+
+  while (currentStep <= steps) {
+    unsigned long currentTime = millis();
+    
+    // Verifica si es momento de actualizar los servos
+    if (currentTime - lastUpdateTime >= (time)) {
+      lastUpdateTime = currentTime; // Actualiza el tiempo de referencia
+
+      for (int j = 0; j < count; j++) {
+        int currentPulse = pulsesStart[j] + (pulseSteps[j] * currentStep);
+        pwm.setPWM(servos[j], 0, currentPulse);
+
+        // Depuración por Serial
+        Serial.print(servos[j]);
+        Serial.print(" ");
+        Serial.print(currentPulse);
+        Serial.print("  ");
+      }
+        Serial.println();
+      currentStep++; // Avanza al siguiente paso
     }
- //   Serial.println();
- //   Serial.print("Task2 running on core ");
- //   Serial.println(xPortGetCoreID());
-    delay(time / steps); //Divide el tiempo por los pasos para suavizar
   }
 }
 void fastMove(int count, int servos[], int startAngles[], int endAngles[], int time) {
@@ -380,10 +387,10 @@ void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11
   };
   int startAngles[]={P6,P7,P8,P9,P10,P11,P12,P13};
 
-/*  Serial.print(X0); //Diagnostic Mode
-  Serial.println();
-  for (int i = 0; i < CAM; i++) {
-    Serial.print(startAngles[i]);
+//  Serial.print(X0); //Diagnostic Mode
+//  Serial.println();
+ /* for (int i = 0; i < CAM3; i++) {
+    Serial.print(AbsAngles[i]);
     Serial.write("\t");
   }
   Serial.println();*/
@@ -506,16 +513,11 @@ if (command.startsWith("M")) {
 void processSingleCommand(String command) {
   
 if (command.startsWith("firmes")) {
-setInitialServoPositions();
+     setInitialServoPositions();
+     angleZ= 0;
+
 }
 
-if (command.startsWith("caminar")) {
-    derecha2();
-    delay(1000);
-    derecha2();
-    delay(1000);
-    delay(10);
-}
 if (command.startsWith("in1leg")) {
  leg_1();
 }
@@ -531,9 +533,23 @@ if (command.startsWith("cinematic")) {
     delay(t06);
     takeStep(Length, t05);*/
 }
+
+if (command.startsWith("pwm")) {
+  //cinematica
+    cinematic2();
+    delay(t06);
+/*    takeStep(Length, t05);
+    delay(t06);
+    takeStep(Length, t05);
+    delay(t06);
+    takeStep(Length, t05);
+    delay(t06);
+    takeStep(Length, t05);*/
+}
 if (command.startsWith("prepare")) {
   //cinematica
     initialize();
+    angleZ = 0 ;
 /*    delay(250);
     XG1 = 0;
     YG1 = 0;
@@ -555,18 +571,114 @@ void setInitialServoPositions() {
    AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
 
-void derecha2 () {
-AdvMoveRel(20,10,0,-30,30,5,0,0,0,-5,0,0,0,0,0,0);
-delay(100);
-AdvMoveRel(20,10,7,0,20,0,0,5,70,0,0,0,0,0,0,0);
-delay(100);
-AdvMoveRel(20,10,15,20,0,0,0,0,-20,0,0,0,0,0,0,0);
-delay(100);
-}
 void leg_1 () {
 AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
 }
 
+void cinematic2 () {
+AdvMoveAbsLF(t04,27,97,54,130,40,91);
+delay(t05);
+AdvMoveAbsLF(t04,27,97,54,180,115,119);
+delay(t05);
+AdvMoveAbsLF(t04,25,95,55,180,115,119);
+delay(t05);
+AdvMoveAbsLF(t04,25,95,55,180,116,121);
+delay(t05);
+AdvMoveAbsLF(t04,22,93,56,180,116,121);
+delay(t05);
+AdvMoveAbsLF(t04,22,93,56,180,117,124);
+delay(t05);
+AdvMoveAbsLF(t04,20,92,57,180,117,124);
+delay(t05);
+AdvMoveAbsLF(t04,20,92,57,180,118,126);
+delay(t05);
+AdvMoveAbsLF(t04,17,92,59,180,118,126);
+delay(t05);
+AdvMoveAbsLF(t04,17,92,59,180,118,129);
+delay(t05);
+AdvMoveAbsLF(t04,15,91,60,180,118,129);
+delay(t05);
+AdvMoveAbsLF(t04,15,91,60,179,119,131);
+delay(t05);
+AdvMoveAbsLF(t04,14,91,62,177,119,131);
+delay(t05);
+AdvMoveAbsLF(t04,14,91,64,177,119,133);
+delay(t05);
+AdvMoveAbsLF(t04,12,91,64,175,119,133);
+delay(t05);
+AdvMoveAbsLF(t04,10,92,66,175,119,135);
+delay(t05);
+AdvMoveAbsLF(t04,10,92,66,173,118,135);
+delay(t05);
+AdvMoveAbsLF(t04,9,92,68,173,118,137);
+delay(t05);
+AdvMoveAbsLF(t04,9,92,68,171,118,137);
+delay(t05);
+AdvMoveAbsLF(t04,8,93,70,171,118,138);
+delay(t05);
+AdvMoveAbsLF(t04,8,93,70,168,117,140);
+delay(t05);
+AdvMoveAbsLF(t04,7,95,73,168,117,140);
+delay(t05);
+AdvMoveAbsLF(t04,7,95,73,166,116,142);// step PF
+delay(t05);
+AdvMoveAbsLF(t04,6,97,75,166,116,142);//step middle
+delay(t05);
+AdvMoveAbsLF(t04,6,97,75,163,115,143);
+delay(t05);
+AdvMoveAbsLF(t04,0,65,62,163,83,143);
+delay(t05);
+AdvMoveAbsLF(t04,0,65,62,148,83,127);
+delay(t05);
+AdvMoveAbsLF(t04,0,64,60,148,85,127);
+delay(t05);
+AdvMoveAbsLF(t04,0,64,60,150,87,126);
+delay(t05);
+AdvMoveAbsLF(t04,0,63,57,150,87,126);
+delay(t05);
+AdvMoveAbsLF(t04,0,63,57,153,88,126);
+delay(t05);
+AdvMoveAbsLF(t04,0,62,55,153,88,125);
+delay(t05);
+AdvMoveAbsLF(t04,0,62,55,155,88,125);
+delay(t05);
+AdvMoveAbsLF(t04,0,62,52,155,88,124);
+delay(t05);
+AdvMoveAbsLF(t04,0,62,52,158,88,124);
+delay(t05);
+AdvMoveAbsLF(t04,0,61,50,158,89,122);
+delay(t05);
+AdvMoveAbsLF(t04,0,61,50,160,89,122);
+delay(t05);
+AdvMoveAbsLF(t04,0,61,48,160,89,121);// step PF
+delay(t05);
+AdvMoveAbsLF(t04,0,61,48,161,89,121);
+delay(t05);
+AdvMoveAbsLF(t04,0,61,46,161,89,119);
+delay(t05);
+AdvMoveAbsLF(t04,0,61,46,163,89,119);
+delay(t05);
+AdvMoveAbsLF(t04,2,61,44,163,89,117);
+delay(t05);
+AdvMoveAbsLF(t04,2,62,44,165,88,117);
+delay(t05);
+AdvMoveAbsLF(t04,4,62,43,165,88,115);
+delay(t05);
+AdvMoveAbsLF(t04,4,63,43,166,88,115);
+delay(t05);
+AdvMoveAbsLF(t04,7,63,41,166,88,113);
+delay(t05);
+AdvMoveAbsLF(t04,7,64,41,167,87,111);
+delay(t05);
+AdvMoveAbsLF(t04,9,64,39,167,87,111);
+delay(t05);
+AdvMoveAbsLF(t04,9,64,39,168,85,108);
+delay(t05);
+AdvMoveAbsLF(t04,12,65,38,168,85,108);
+delay(t05);
+AdvMoveAbsLF(t04,12,65,38,169,83,106);
+delay(t05);
+}
 //cinematica
 
 //cinematica
@@ -577,6 +689,16 @@ void updateServoPos(int target1, int target2, int target3, char leg){
   }
   else if (leg == 'r'){ 
     AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5);
+    
+  }
+}
+void updateServoPosB(int target1, int target2, int target3, char leg){
+  if (leg == 'l'){
+    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k04);
+
+  }
+  else if (leg == 'r'){ 
+    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k04,P3,P4,P5);
     
   }
 }
@@ -610,6 +732,34 @@ void pos(float x, float z, char leg){
   updateServoPos(hipDeg, kneeDeg, ankleDeg, leg);  
 }
 
+void posB(float x, float z, char leg){
+  float hipRad2 = atan(x/z);
+  float hipDeg2 = hipRad2 * (180/PI);
+
+  float z2 = z/cos(hipRad2);
+
+  float hipRad1 = acos((sq(l1) + sq(z2) - sq(l2))/(2*l1*z2));
+  float hipDeg1 = hipRad1 * (180/PI);
+  
+  float kneeRad = PI - acos((sq(l1) + sq(l2) - sq(z2))/(2*l1*l2));
+
+  float ankleRad = PI/2 + hipRad2 - acos((sq(l2) + sq(z2) - sq(l1))/(2*l2*z2));
+  
+  float hipDeg = hipDeg1 + hipDeg2;
+  float kneeDeg = kneeRad * (180/PI);
+  float ankleDeg = ankleRad * (180/PI);
+/*
+  Serial.print(leg);
+  Serial.print("\t");
+  Serial.print(ankleDeg);
+  Serial.print("\t");
+  Serial.print(kneeDeg);
+  Serial.print("\t");
+  Serial.print(hipDeg);
+  Serial.print("\t");
+*/
+  updateServoPosB(hipDeg, kneeDeg, ankleDeg, leg);  
+}
 void takeStep(float stepLength, int stepVelocity){
   for (float i = stepLength; i >= -stepLength; i-=0.5){
     pos(i, stepHeight, 'r');
@@ -627,8 +777,8 @@ void initialize(){
   long Fleg;
   Fleg = l1 + l2;
   for (float i = Fleg; i >= stepHeight; i-=0.5){
-    pos(0, i, 'l');
-    pos(0, i, 'r');
+    posB(0, i, 'l');
+    posB(0, i, 'r');
   }
 }
 //Editor de variables
@@ -648,18 +798,26 @@ void setVariable(String variableName, int newValue) {
     t05 = newValue;
   } else if (variableName == "T6") {
     t06 = newValue;
+  } else if (variableName == "T7") {
+    t07 = newValue;
+  } else if (variableName == "T8") {
+    t08 = newValue;
   } else if (variableName == "K1") {
     k01 = newValue;
   } else if (variableName == "K2") {
     k02 = newValue;
   } else if (variableName == "K3") {
     k03 = newValue;
+  } else if (variableName == "K4") {
+    k04 = newValue;  
+  } else if (variableName == "FC") {
+    FC = newValue;
   } else if (variableName == "l1") {
     l1 = newValue;
   } else if (variableName == "l2") {
     l2 = newValue;
-    Serial.print("L2  updated:");
-    Serial.println(l2);
+//    Serial.print("L2  updated:");
+//    Serial.println(l2);
   } else if (variableName == "stepClearance") {
     stepClearance = newValue;
   } else if (variableName == "stepHeight") {
@@ -694,24 +852,41 @@ int validarAngulo(int servoID, int anguloSolicitado) {
     }
     return anguloSolicitado;
 }
-void MPU1(){
-    sensors_event_t a, g, temp;
-    mpu.getEvent(&a, &g, &temp);
-    float XG1A = g.gyro.x;
-    float YG1A = g.gyro.y;
-    float ZG1A = g.gyro.z;
-    if(XG1A>ref || XG1A<-ref){
- //    XG1A =XG1A - E ; 
-    XG1 =XG1 + XG1A;  
-    }
-    if(YG1A>ref || YG1A<-ref){
- //   YG1A =YG1A - E ;
-    YG1 =YG1 + YG1A;  
-    }
-    if(ZG1A>ref || ZG1A<-ref){
- //   ZG1A =ZG1A - E ;
-    ZG1 =ZG1 + ZG1A;  
-    } 
+void MPU1() {
+   sensors_event_t a, g, temp;
+  mpu.getEvent(&a, &g, &temp);
+
+  unsigned long currentTime = millis();
+  float deltaTime = (currentTime - previousTime) / 1000.0; // Tiempo en segundos
+  previousTime = currentTime;
+
+  // Ajustar valores del giroscopio usando los offsets calibrados
+  float gyroX = (g.gyro.x - gyroX_offset) * 57.2958; // rad/s a grados/s
+  float gyroY = (g.gyro.y - gyroY_offset) * 57.2958;
+  float gyroZ = (g.gyro.z - gyroZ_offset) * 57.2958;
+
+  // Acumular los ángulos (integración)
+  angleX += gyroX * deltaTime;
+  angleY += gyroY * deltaTime;
+  angleZ += gyroZ * deltaTime;
+
+  // Filtro complementario: combinar giroscopio con acelerómetro
+  float accelAngleX = atan2(a.acceleration.y, a.acceleration.z) * 57.2958; // Acelerómetro a grados
+  float accelAngleY = atan2(-a.acceleration.x, sqrt(a.acceleration.y * a.acceleration.y + a.acceleration.z * a.acceleration.z)) * 57.2958;
+
+  // Combinar ángulos (filtro complementario)
+  angleX = 0.98 * (angleX) + 0.02 * accelAngleX;
+  angleY = 0.98 * (angleY) + 0.02 * accelAngleY;
+
+  // Imprimir los resultados
+  Serial.print("Angle X: ");
+  Serial.print(angleX);
+  Serial.print(" deg, Y: ");
+  Serial.print(angleY);
+  Serial.print(" deg, Z: ");
+  Serial.print(angleZ);
+  Serial.println(" deg"); 
+}
        //diagnostic Mode
 //    Serial.print("Task1 running on core ");
 //    Serial.println(xPortGetCoreID());
@@ -723,42 +898,105 @@ void MPU1(){
     Serial.print(" ");
     Serial.println(g.gyro.z, 6);*/
    // delay(50);
-}
+
 void verificarGiroscopio(float valorReferencia) {
-    if (valorReferencia > 2 && !Jam1) {
+    if (valorReferencia > FC && !Jam1) {
         activarSecuenciaEquilibrio(true);
-    } else if (valorReferencia < -2 && !Jam2) {
+    } else if (valorReferencia < -FC && !Jam2) {
         activarSecuenciaEquilibrio(false);
+    }
+    if (FG > valorReferencia && valorReferencia > -FG && !Jam3 && !secuenciaActivada) {
+        activarSecuencia();
     }
 }
 
 // Función para activar la secuencia de equilibrio
 void activarSecuenciaEquilibrio(bool haciaAdelante) {
     equilibrioActivo = true;  // Marcar que estamos en modo equilibrio
+    unsigned long startTime = millis();
 
     if (haciaAdelante) {
-        for (int i = 0; i < 9; i++) {
-            Mult = (referenciaGiro * 1) / 10;
-            Add[i] = (Dif1[i] * Mult);
-        }
         Jam1 = 1;
         Jam2 = 0;
-        AdvMoveAbsA(20, 10, posiciones[6] + Add[0], P7, posiciones[8] + Add[2],
-                    posiciones[9] + Add[3], posiciones[10] + Add[4], P11,
-                    P12, P13);
+        Jam3 = 0;
+        AdvMoveAbsA(t07, 10, Recto[0], Ladeado[1], Recto[2],
+                    Recto[3], Recto[4], Ladeado[5],
+                    Ladeado[6], Ladeado[7]);
     } else {
-        for (int i = 0; i < 9; i++) {
-            Mult = (referenciaGiro * 1) / -10;
-            Add[i] = (Dif2[i] * Mult);
-        }
         Jam1 = 0;
         Jam2 = 1;
-        AdvMoveAbsA(20, 10, P6, posiciones[7] + Add[1], P8,
-                    P9, P10, posiciones[11] + Add[5],
-                    posiciones[12] + Add[6], posiciones[13] + Add[7]);
+        Jam3 = 0;
+        AdvMoveAbsA(t07, 10, Ladeado[0], Recto[1], Ladeado[2],
+                    Ladeado[3], Ladeado[4], Recto[5],
+                    Recto[6], Recto[7]);
     }
 
-    // Finalizar el equilibrio después de un pequeño retraso
-    delay(50);  // Ajustar según el tiempo de movimiento necesario
+    // Temporización en lugar de `delay`
+    while (millis() - startTime < t08) {
+        // Puedes añadir aquí lógica adicional si es necesario
+        vTaskDelay(1); // Evita sobrecarga de CPU en FreeRTOS
+    }
+
+    secuenciaActivada = false;
     equilibrioActivo = false;  // Restablecer el estado
+}
+
+
+// Función para activar la secuencia de equilibrio
+void activarSecuencia() {
+    static unsigned long startTime = 0; // Tiempo de inicio de la secuencia
+    static bool secuenciaIniciada = false; // Indicador de inicio de la secuencia
+
+    if (!secuenciaIniciada) {
+        // Configuración inicial de la secuencia
+        equilibrioActivo = true;
+        secuenciaActivada = true;
+
+        Jam1 = 0;
+        Jam2 = 0;
+        Jam3 = 1;
+
+        // Iniciar el movimiento de los servos
+        AdvMoveAbsA(t07, 10, posiciones[6], posiciones[7], posiciones[8],
+                    posiciones[9], posiciones[10], posiciones[11],
+                    posiciones[12], posiciones[13]);
+
+        // Registrar el tiempo de inicio
+        startTime = millis();
+        secuenciaIniciada = true;
+    }
+
+    // Verificar si el tiempo `t08` ha pasado
+    if (millis() - startTime >= t08) {
+        // Finalizar la secuencia después del tiempo especificado
+        equilibrioActivo = false;
+        secuenciaActivada = false;
+        secuenciaIniciada = false; // Resetear para la próxima ejecución
+    }
+}
+void calibrateGyro(int samples) {
+  float sumX = 0, sumY = 0, sumZ = 0;
+
+  Serial.println("Calibrating gyroscope... Please keep the sensor steady.");
+  for (int i = 0; i < samples; i++) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    sumX += g.gyro.x;
+    sumY += g.gyro.y;
+    sumZ += g.gyro.z;
+
+    delay(10); // Pequeña pausa entre mediciones
+  }
+  gyroX_offset = sumX / samples;
+  gyroY_offset = sumY / samples;
+  gyroZ_offset = sumZ / samples;
+
+  Serial.println("Calibration complete.");
+  Serial.print("Offsets -> X: ");
+  Serial.print(gyroX_offset);
+  Serial.print(", Y: ");
+  Serial.print(gyroY_offset);
+  Serial.print(", Z: ");
+  Serial.println(gyroZ_offset);
 }

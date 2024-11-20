@@ -91,8 +91,8 @@ float referenciaGiro = 0;  // Puede ser XG1, YG1, o ZG1
 int Jam1 = 0;
 int Jam2 = 0;
 int Jam3 = 0;
-int FC = 30 ;
-int FG = 15 ;
+int FC = 10 ;
+int FG = 5 ;
 bool secuenciaActivada = false;
 
 
@@ -130,7 +130,7 @@ void setup() {
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
   delay(100);
-  calibrateGyro(100); // Calibrar giroscopio con 100 muestras
+  calibrateGyro(1000); // Calibrar giroscopio con 100 muestras
 
   previousTime = millis();
   //inicialisamos nucleo 0
@@ -172,7 +172,7 @@ void Core0( void * pvParameters ){
         // Evaluar si es necesario activar el equilibrio
         if (contB > 50 && !equilibrioActivo) {
             verificarGiroscopio(angleZ);
-            verificarGiroscop(angleY);
+ //           verificarGiroscop(angleY);
 
             contB = 0;
         }
@@ -494,7 +494,8 @@ if (command.startsWith("M")) {
 void processSingleCommand(String command) {
   
 if (command.startsWith("firmes")) {
-setInitialServoPositions();
+    setInitialServoPositions();
+     angleZ= 0;
 }
 
 if (command.startsWith("in1leg")) {
@@ -528,6 +529,7 @@ if (command.startsWith("pwm")) {
 if (command.startsWith("prepare")) {
   //cinematica
     initialize();
+    angleZ = 0 ;
 /*    delay(250);
     XG1 = 0;
     YG1 = 0;
@@ -554,109 +556,108 @@ AdvMoveAbs(20,10,45,90,180,150,55,91,20,160,160,100,90,20,80,90);
 }
 
 void cinematic2 () {
-/*
-AdvMoveAbsLF(t04,27,97,54,130,40,91);
+AdvMoveAbsLF(t04,27,97,54,130,40,91, posiciones[8], posiciones[11]);
 delay(t05);
-AdvMoveAbsLF(t04,27,97,54,180,115,119);
+AdvMoveAbsLF(t04,27,97,54,180,115,119, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,25,95,55,180,115,119);
+AdvMoveAbsLF(t04,25,95,55,180,115,119, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,25,95,55,180,116,121);
+AdvMoveAbsLF(t04,25,95,55,180,116,121, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,22,93,56,180,116,121);
+AdvMoveAbsLF(t04,22,93,56,180,116,121, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,22,93,56,180,117,124);
+AdvMoveAbsLF(t04,22,93,56,180,117,124, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,20,92,57,180,117,124);
+AdvMoveAbsLF(t04,20,92,57,180,117,124, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,20,92,57,180,118,126);
+AdvMoveAbsLF(t04,20,92,57,180,118,126, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,17,92,59,180,118,126);
+AdvMoveAbsLF(t04,17,92,59,180,118,126, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,17,92,59,180,118,129);
+AdvMoveAbsLF(t04,17,92,59,180,118,129, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,15,91,60,180,118,129);
+AdvMoveAbsLF(t04,15,91,60,180,118,129, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,15,91,60,179,119,131);
+AdvMoveAbsLF(t04,15,91,60,179,119,131, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,14,91,62,177,119,131);
+AdvMoveAbsLF(t04,14,91,62,177,119,131, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,14,91,64,177,119,133);
+AdvMoveAbsLF(t04,14,91,64,177,119,133, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,12,91,64,175,119,133);
+AdvMoveAbsLF(t04,12,91,64,175,119,133, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,10,92,66,175,119,135);
+AdvMoveAbsLF(t04,10,92,66,175,119,135, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,10,92,66,173,118,135);
+AdvMoveAbsLF(t04,10,92,66,173,118,135, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,9,92,68,173,118,137);
+AdvMoveAbsLF(t04,9,92,68,173,118,137, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,9,92,68,171,118,137);
+AdvMoveAbsLF(t04,9,92,68,171,118,137, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,8,93,70,171,118,138);
+AdvMoveAbsLF(t04,8,93,70,171,118,138, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,8,93,70,168,117,140);
+AdvMoveAbsLF(t04,8,93,70,168,117,140, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,7,95,73,168,117,140);
+AdvMoveAbsLF(t04,7,95,73,168,117,140, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,7,95,73,166,116,142);// step PF
+AdvMoveAbsLF(t04,7,95,73,166,116,142, P8, P11);// step PF
 delay(t05);
-AdvMoveAbsLF(t04,6,97,75,166,116,142);//step middle
+AdvMoveAbsLF(t04,6,97,75,166,116,142, P8, P11);//step middle
 delay(t05);
-AdvMoveAbsLF(t04,6,97,75,163,115,143);
+AdvMoveAbsLF(t04,6,97,75,163,115,143, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,65,62,163,83,143);
+AdvMoveAbsLF(t04,0,65,62,163,83,143, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,65,62,148,83,127);
+AdvMoveAbsLF(t04,0,65,62,148,83,127, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,64,60,148,85,127);
+AdvMoveAbsLF(t04,0,64,60,148,85,127, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,64,60,150,87,126);
+AdvMoveAbsLF(t04,0,64,60,150,87,126, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,63,57,150,87,126);
+AdvMoveAbsLF(t04,0,63,57,150,87,126, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,63,57,153,88,126);
+AdvMoveAbsLF(t04,0,63,57,153,88,126, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,62,55,153,88,125);
+AdvMoveAbsLF(t04,0,62,55,153,88,125, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,62,55,155,88,125);
+AdvMoveAbsLF(t04,0,62,55,155,88,125, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,62,52,155,88,124);
+AdvMoveAbsLF(t04,0,62,52,155,88,124, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,62,52,158,88,124);
+AdvMoveAbsLF(t04,0,62,52,158,88,124, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,61,50,158,89,122);
+AdvMoveAbsLF(t04,0,61,50,158,89,122, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,61,50,160,89,122);
+AdvMoveAbsLF(t04,0,61,50,160,89,122, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,61,48,160,89,121);// step PF
+AdvMoveAbsLF(t04,0,61,48,160,89,121, P8, P11);// step PF
 delay(t05);
-AdvMoveAbsLF(t04,0,61,48,161,89,121);
+AdvMoveAbsLF(t04,0,61,48,161,89,121, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,61,46,161,89,119);
+AdvMoveAbsLF(t04,0,61,46,161,89,119, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,0,61,46,163,89,119);
+AdvMoveAbsLF(t04,0,61,46,163,89,119, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,2,61,44,163,89,117);
+AdvMoveAbsLF(t04,2,61,44,163,89,117, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,2,62,44,165,88,117);
+AdvMoveAbsLF(t04,2,62,44,165,88,117, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,4,62,43,165,88,115);
+AdvMoveAbsLF(t04,4,62,43,165,88,115, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,4,63,43,166,88,115);
+AdvMoveAbsLF(t04,4,63,43,166,88,115, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,7,63,41,166,88,113);
+AdvMoveAbsLF(t04,7,63,41,166,88,113, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,7,64,41,167,87,111);
+AdvMoveAbsLF(t04,7,64,41,167,87,111, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,9,64,39,167,87,111);
+AdvMoveAbsLF(t04,9,64,39,167,87,111, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,9,64,39,168,85,108);
+AdvMoveAbsLF(t04,9,64,39,168,85,108, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,12,65,38,168,85,108);
+AdvMoveAbsLF(t04,12,65,38,168,85,108, P8, P11);
 delay(t05);
-AdvMoveAbsLF(t04,12,65,38,169,83,106);
-delay(t05);*/
+AdvMoveAbsLF(t04,12,65,38,169,83,106, P8, P11);
+delay(t05);
 }
 //cinematica
 
@@ -888,15 +889,6 @@ void verificarGiroscopio(float valorReferencia) {
         activarSecuencia();
     }
 }
-
-void verificarGiroscop(float valorReferencia) {
-    if (valorReferencia < -83) {
-    k03 =  -15;
-    } else if (valorReferencia > -73) {
-    k03 = 10;
-    }
-}
-
 
 // Función para activar la secuencia de equilibrio
 void activarSecuenciaEquilibrio(bool haciaAdelante) {

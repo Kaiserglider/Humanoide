@@ -69,6 +69,7 @@ int t08 = 100;
 int N = 100;
 int M = 100;
 int P = 0;
+int PL = 0;
 //Cinematica
 int l1=9 ;
 int l2=8;
@@ -95,7 +96,7 @@ int Jam3 = 0;
 int FC = 10 ;
 int FG = 5 ;
 bool secuenciaActivada = false;
-
+bool pasodado = false;
 
 void setup() {
   //Inicialisamos Bluetooth
@@ -457,8 +458,8 @@ if (command.startsWith("M")) {
         if (nV >= 0) { // Verifica que el número de motor sea válido
             M = nV; // Actualiza el número de motor
             P = nP; // Actualiza el ángulo
-
-            pwm.setPWM(M, 0, angleToPulse(P)); // Envía el comando PWM
+            PL = validarAngulo(M, P);
+            pwm.setPWM(M, 0, angleToPulse(PL)); // Envía el comando PWM
 
             Serial.print("Motor number: ");
             Serial.println(M);
@@ -489,14 +490,14 @@ if (command.startsWith("M")) {
 }
 
 void processSingleCommand(String command) {
-  
+  pasodado=true ;
 if (command.startsWith("firmes")) {
     setInitialServoPositions();
      angleZ= 0;
 }
 
 if (command.startsWith("empyric")) {
- step();
+ empyric();
 }
 if (command.startsWith("cinematic")) {
   //cinematica
@@ -553,8 +554,12 @@ void getup {
    AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
 */
-void step () {
-AdvMoveAbsL(20,10,30,105,75,P3,P4,P5,105,P11);
+void empyric () {
+AdvMoveAbsL(t01,10,30,105,75,P3,P4,P5,105,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,105,60,135,P8,86);
+delay(t02);
+return;
 }
 
 void cinematic2 () {

@@ -60,7 +60,9 @@ int t02 = 10;
 int t03 = 35;
 int t04 = 15;
 int t05 = 25;
-int t06 = 100;     // Tiempo de retraso entre movimientos
+int t06 = 100;  
+int t07 = 100;
+int t08 = 100;   
 //int steps = 10;  // Número de pasos para suavizar el movimiento
 //Variables para control manual de motores
 int N = 100;
@@ -89,8 +91,8 @@ float referenciaGiro = 0;  // Puede ser XG1, YG1, o ZG1
 int Jam1 = 0;
 int Jam2 = 0;
 int Jam3 = 0;
-int FC = 30 ;
-int FG = 15 ;
+int FC = 10 ;
+int FG = 5 ;
 bool secuenciaActivada = false;
 
 
@@ -128,7 +130,7 @@ void setup() {
   mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
 
   delay(100);
-  calibrateGyro(100); // Calibrar giroscopio con 100 muestras
+  calibrateGyro(1000); // Calibrar giroscopio con 100 muestras
 
   previousTime = millis();
   //inicialisamos nucleo 0
@@ -170,7 +172,7 @@ void Core0( void * pvParameters ){
         // Evaluar si es necesario activar el equilibrio
         if (contB > 50 && !equilibrioActivo) {
             verificarGiroscopio(angleZ);
-            verificarGiroscop(angleY);
+   //         verificarGiroscop(angleY);
 
             contB = 0;
         }
@@ -237,14 +239,14 @@ void smoothMove(int count, int servos[], int startAngles[], int endAngles[], int
     for (int j = 0; j < count; j++) {
       int currentPulse = pulsesStart[j] + (pulseSteps[j] * i);
       pwm.setPWM(servos[j], 0, currentPulse);
- /*     Serial.print("M:");
+      Serial.print("M:");
       Serial.print(servos[j]);
       Serial.write(" ");
       Serial.print("PWM:");
       Serial.print(currentPulse);
-      Serial.write(" ");*/
+      Serial.write(" ");
     }
- //   Serial.println();
+    Serial.println();
  //   Serial.print("Task2 running on core ");
  //   Serial.println(xPortGetCoreID());
     delay(time / steps); //Divide el tiempo por los pasos para suavizar
@@ -366,11 +368,11 @@ void AdvMoveAbsA(int time, int steps,int X6,int X7,int X8,int X9,int X10,int X11
 
 //  Serial.print(X0); //Diagnostic Mode
 //  Serial.println();
-  for (int i = 0; i < CAM3; i++) {
+ /* for (int i = 0; i < CAM3; i++) {
     Serial.print(AbsAngles[i]);
     Serial.write("\t");
   }
-  Serial.println();
+  Serial.println();*/
   smoothMove(CAM3, servos3, startAngles, AbsAngles, time, steps);
  // Array de Pulsos Iniciales y Finales
     P6 = AbsAngles[6]; P7 = AbsAngles[7];
@@ -490,7 +492,9 @@ if (command.startsWith("M")) {
 void processSingleCommand(String command) {
   
 if (command.startsWith("firmes")) {
-setInitialServoPositions();
+     setInitialServoPositions();
+     angleZ= 0;
+
 }
 
 if (command.startsWith("in1leg")) {
@@ -524,6 +528,7 @@ if (command.startsWith("pwm")) {
 if (command.startsWith("prepare")) {
   //cinematica
     initialize();
+    angleZ = 0 ;
 /*    delay(250);
     XG1 = 0;
     YG1 = 0;
@@ -760,8 +765,8 @@ void setVariable(String variableName, int newValue) {
   // Actualizar variables individuales
   if (variableName == "T1") {
     t01 = newValue;
-//    Serial.print("T1  updated:");
-//    Serial.println(t01);
+    Serial.print("T1  updated:");
+    Serial.println(t01);
   } else if (variableName == "T2") {
     t02 = newValue;
   } else if (variableName == "T3") {
@@ -772,6 +777,10 @@ void setVariable(String variableName, int newValue) {
     t05 = newValue;
   } else if (variableName == "T6") {
     t06 = newValue;
+  } else if (variableName == "T7") {
+    t07 = newValue;
+  } else if (variableName == "T8") {
+    t08 = newValue;
   } else if (variableName == "K1") {
     k01 = newValue;
   } else if (variableName == "K2") {
@@ -880,15 +889,6 @@ void verificarGiroscopio(float valorReferencia) {
     }
 }
 
-void verificarGiroscop(float valorReferencia) {
-    if (valorReferencia < -83) {
-    k03 =  -15;
-    } else if (valorReferencia > -73) {
-    k03 = 10;
-    }
-}
-
-
 // Función para activar la secuencia de equilibrio
 void activarSecuenciaEquilibrio(bool haciaAdelante) {
     equilibrioActivo = true;  // Marcar que estamos en modo equilibrio
@@ -901,7 +901,7 @@ void activarSecuenciaEquilibrio(bool haciaAdelante) {
         Jam1 = 1;
         Jam2 = 0;
         Jam3 = 0;
-        AdvMoveAbsA(20, 10, Recto[0], Ladeado[1], Recto[2],
+        AdvMoveAbsA(t07, 10, Recto[0], Ladeado[1], Recto[2],
                     Recto[3],Recto[4], Ladeado[5],
                     Ladeado[6], Ladeado[7]);
     } else {
@@ -912,13 +912,13 @@ void activarSecuenciaEquilibrio(bool haciaAdelante) {
         Jam1 = 0;
         Jam2 = 1;
         Jam3 = 0;
-        AdvMoveAbsA(t01, 10, Ladeado[0], Recto[1], Ladeado[2],
+        AdvMoveAbsA(t07, 10, Ladeado[0], Recto[1], Ladeado[2],
                     Ladeado[3], Ladeado[4], Recto[5],
                     Recto[6],Recto[7]);
     }
 
     // Finalizar el equilibrio después de un pequeño retraso
-    delay(50);  // Ajustar según el tiempo de movimiento necesario
+    delay(t08);  // Ajustar según el tiempo de movimiento necesario
     secuenciaActivada = false;
     equilibrioActivo = false;  // Restablecer el estado
 }
@@ -931,12 +931,12 @@ void activarSecuencia() {
     Jam1 = 0;
     Jam2 = 0;
     Jam3 = 1;
-    AdvMoveAbsA(t01, 10, posiciones[6], posiciones[7], posiciones[8],
+    AdvMoveAbsA(t07, 10, posiciones[6], posiciones[7], posiciones[8],
                 posiciones[9], posiciones[10], posiciones[11],
                 posiciones[12], posiciones[13]);
 
     // Finalizar el equilibrio después de un pequeño retraso
-    delay(50);  // Ajustar según el tiempo de movimiento necesario
+    delay(t08);  // Ajustar según el tiempo de movimiento necesario
     equilibrioActivo = false;  // Restablecer el estado
 }
 void calibrateGyro(int samples) {
@@ -965,4 +965,3 @@ void calibrateGyro(int samples) {
   Serial.print(", Z: ");
   Serial.println(gyroZ_offset);
 }
-

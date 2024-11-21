@@ -79,8 +79,8 @@ int stepHeight=16;
 
 int k01=10;
 int k02=10;
-int k03=-15;
-int k04=10;
+int k03=-5;
+int k04=5;
 int Length=3;
 //Control Brazos
 int Dif1[8];
@@ -89,6 +89,7 @@ int Add[8];
 int Mult = 0;
 int contB = 0;
 bool equilibrioActivo = false;
+bool G = false;
 float referenciaGiro = 0;  // Puede ser XG1, YG1, o ZG1
 int Jam1 = 0;
 int Jam2 = 0;
@@ -97,6 +98,13 @@ int FC = 10 ;
 int FG = 5 ;
 bool secuenciaActivada = false;
 bool pasodado = false;
+int ADA = 0;
+int ADE = 0;
+//Adjusted Cinematic
+float length2 = 0;
+float MULT = 0;
+int VarA = 15;
+
 
 void setup() {
   //Inicialisamos Bluetooth
@@ -171,7 +179,7 @@ void setup() {
 
 //Task1code: check the MPU6050 And control arms
 void Core0( void * pvParameters ){
- Serial.print("Task1 started on core ");
+    Serial.print("Task1 started on core ");
     Serial.println(xPortGetCoreID());
 
     for (;;) {
@@ -183,12 +191,11 @@ void Core0( void * pvParameters ){
             contG = 0;
         }
         // Evaluar si es necesario activar el equilibrio
-        if (contB > 50 && !equilibrioActivo) {
-            verificarGiroscopio(angleZ);
-  //          verificarGiroscop(angleY);
+    if (contB > 50 && !equilibrioActivo && G) {
+      verificarGiroscopio(angleZ);
+      contB = 0;
+    }
 
-            contB = 0;
-        }
         delay(1);  // Evitar sobrecarga
     }
   } 
@@ -550,6 +557,18 @@ if (command.startsWith("M")) {
     }
     return;
 }
+  if (command.equalsIgnoreCase("GON")) {
+    G = true;
+ //   Serial.println("Giroscopio activado.");
+    return;
+  }
+
+  if (command.equalsIgnoreCase("GOFF")) {
+    G = false;
+ //   Serial.println("Giroscopio desactivado.");
+    return;
+  }
+
   // Dividir el comando por ';'
   int startIndex = 0;
   int endIndex = command.indexOf(';');
@@ -575,9 +594,6 @@ if (command.startsWith("firmes")) {
 
 if (command.startsWith("emp")) {
  emp();
-}
-if (command.startsWith("walk")) {
- walk();
 }
 if (command.startsWith("cinematic")) {
   //cinematica
@@ -634,16 +650,53 @@ void getup {
    AdvMoveAbs(100,10,posiciones[0],posiciones[1],posiciones[2],posiciones[3],posiciones[4],posiciones[5],posiciones[6],posiciones[7],posiciones[8],posiciones[9],posiciones[10],posiciones[11],posiciones[12],posiciones[13]);
 }
 */
-void emp() {
+/*  for (int i = 0; i < 3; i++) {
+    Difr1[i]=Movm1[i]-posiciones[i]
+  }*/
+void emp() { //empyric
+int Movm1[4]={30,105,75,108};
+int Difr1[4];
+  Difr1[0]=Movm1[0]-posiciones[0];
+  Difr1[1]=Movm1[1]-posiciones[1];
+  Difr1[2]=Movm1[2]-posiciones[2];
+  Difr1[3]=Movm1[3]-posiciones[8];
+int Movm2[4]={105,60,135,86};
+int Difr2[4];
+  Difr2[0]=Movm2[0]-posiciones[3];
+  Difr2[1]=Movm2[1]-posiciones[4];
+  Difr2[2]=Movm2[2]-posiciones[5];
+  Difr2[3]=Movm2[3]-posiciones[11];
+int Movm3[4]={20,80,60,120};
+int Difr3[4];
+  Difr3[0]=Movm3[0]-posiciones[0];
+  Difr3[1]=Movm3[1]-posiciones[1];
+  Difr3[2]=Movm3[2]-posiciones[2];
+  Difr3[3]=Movm3[3]-posiciones[3];
+
 AdvMoveAbsL(t01,10,30,105,75,P3,P4,P5,108,P11);
 delay(t02);
 AdvMoveAbsL(t01,10,P0,P1,P2,105,60,135,P8,86);
 delay(t02);
 AdvMoveAbsL(t01,10,20,80,60,120,P4,P5,P8,P11);
 delay(t02);
-AdvMoveAbsL(t01,10,P0,95,P2,P3,P4,P5,90,75);
+AdvMoveAbsL(t01,10,10,75,70,P3,P4,P5,P8,100);
 delay(t02);
-AdvMoveAbsL(t01,10,P0,P1,P2,130,40,85,P8,70);
+AdvMoveAbsL(t01,10,5,P1,P2,P3,P4,P5,88,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+delay(t02);
+//AdvMoveAbsL(t01,10,55,115,40,110,P4,P5,P8,P11);
+//delay(t02);
+//AdvMoveAbsL(t01,10,55,115,40,120,P4,P5,P8,P11);
+//delay(t02);
+return;
+}
+
+//AdvMoveAbsL(t01,10,P0,95,P2,P3,P4,P5,90,75);
+//delay(t02);
+/*AdvMoveAbsL(t01,10,P0,P1,P2,130,40,85,P8,73);
 delay(t02);
 AdvMoveAbsL(t01,10,P0,115,40,55,P4,P5,90,75);
 delay(t02);
@@ -651,32 +704,13 @@ AdvMoveAbsL(t01,10,70,P1,P2,165,93,120,P8,96);
 delay(t02);
 AdvMoveAbsL(t01,10,45,135,90,P3,P4,P5,108,P11);
 delay(t02);
-/*AdvMoveAbsL(t01,10,P0,P1,P2,135,45,85,P8,71);
+AdvMoveAbsL(t01,10,P0,P1,P2,135,45,85,P8,71);
 delay(t02);*/
-return;
-}
-void walk() {
-AdvMoveAbsL(t01,10,20,80,60,120,P4,P5,P8,P11);
-delay(t02);
-AdvMoveAbsL(t01,10,P0,95,P2,P3,P4,P5,90,75);
-delay(t02);
-AdvMoveAbsL(t01,10,P0,P1,P2,130,40,85,P8,70);
-delay(t02);
-AdvMoveAbsL(t01,10,P0,115,40,55,P4,P5,90,75);
-delay(t02);
-AdvMoveAbsL(t01,10,70,P1,P2,165,93,120,P8,96);
-delay(t02);
-AdvMoveAbsL(t01,10,45,135,90,P3,P4,P5,108,P11);
-delay(t02);
-/*AdvMoveAbsL(t01,10,P0,P1,P2,135,45,85,P8,71);
-delay(t02);*/
-return;
-}
 /*
 void cinematic2 () {
 AdvMoveAbsLF(t04,27,97,54,130,40,91, posiciones[8], posiciones[11]);
 delay(t05);
-AdvMoveAbsLF(t04,27,97,54,180,115,119, P8, P11);
+AdvMoveAbsLF(t04,27,97,54,180,115,119, 105, 90);
 delay(t05);
 AdvMoveAbsLF(t04,25,95,55,180,115,119, P8, P11);
 delay(t05);
@@ -782,12 +816,14 @@ delay(t05);
 //cinematica
 void updateServoPos(int target1, int target2, int target3, char leg){
   if (leg == 'l'){
-    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03, P8, P11);
-
+//ADA = 108;
+//ADE = 86;
+    AdvMoveAbsLF(t04, P0,P1,P2,posiciones[3]-(target3-90-k01),posiciones[4]+ target2+k02,posiciones[5]+target1+k03, ADA, ADE);
   }
   else if (leg == 'r'){ 
-    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5, P8, P11);
-    
+//ADA = 90;
+//ADE = 71;
+    AdvMoveAbsLF(t04, posiciones[0]+(target3-90-k01), posiciones[1]-target2-k02,posiciones[2]-target1-k03,P3,P4,P5, ADA, ADE);
   }
 }
 void updateServoPosB(int target1, int target2, int target3, char leg){
@@ -859,13 +895,23 @@ void posB(float x, float z, char leg){
   updateServoPosB(hipDeg, kneeDeg, ankleDeg, leg);  
 }
 void takeStep(float stepLength, int stepVelocity){
-  for (float i = stepLength; i >= -stepLength; i-=0.5){
+
+    for (float i = stepLength; i >= -stepLength; i-=0.5){
+    length2 = (3-abs(i));
+    //Serial.println(length2);
+    MULT = (length2 * VarA / Length); 
+    ADA = posiciones[8] + MULT;
+    ADE = posiciones[11];
     pos(i, stepHeight, 'r');
     pos(-i, stepHeight - stepClearance, 'l');
     delay(stepVelocity);
   }
-
-  for (float i = stepLength; i >= -stepLength; i-=0.5){
+    for (float i = stepLength; i >= -stepLength; i-=0.5){
+    length2 = (3-abs(i));
+    //Serial.println(length2);
+    MULT = (length2 * VarA / Length); 
+    ADA = posiciones[8];
+    ADE = posiciones[11]-MULT;
     pos(-i, stepHeight - stepClearance, 'r');
     pos(i, stepHeight, 'l');
     delay(stepVelocity);
@@ -922,6 +968,8 @@ void setVariable(String variableName, int newValue) {
     stepHeight = newValue;
   } else if (variableName == "Length") {
     Length = newValue;
+  } else if (variableName == "VarA") {
+    VarA = newValue;
   } else if (variableName.startsWith("P")) { // Variables P
     int index = variableName.substring(1).toInt();
     if (index >= 0 && index < 14) {

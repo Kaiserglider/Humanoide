@@ -105,6 +105,21 @@ float length2 = 0;
 float MULT = 0;
 int VarA = 15;
 
+int Difr1[4];
+int Movm1[4]={30,105,75,108};
+int Movm2[4]={105,60,135,86};
+int Difr2[4];
+int Movm3[4]={20,80,60,120};
+int Difr3[4];
+int Movm4[4]={10,75,70,100};
+int Difr4[4];
+int Movm5[2]={5,88};
+int Difr5[2];
+int Movm6[1]={90};
+int Difr6[1];
+int Movm7[6]={55,155,80,130,50,125};
+int Difr7[6];
+
 
 void setup() {
   //Inicialisamos Bluetooth
@@ -134,6 +149,33 @@ void setup() {
   int P11 = posiciones[11];
   int P12 = posiciones[12];
   int P13 = posiciones[13];
+  
+
+  Difr1[0]=Movm1[0]-posiciones[0];
+  Difr1[1]=Movm1[1]-posiciones[1];
+  Difr1[2]=Movm1[2]-posiciones[2];
+  Difr1[3]=Movm1[3]-posiciones[8];
+  Difr2[0]=Movm2[0]-posiciones[3];
+  Difr2[1]=Movm2[1]-posiciones[4];
+  Difr2[2]=Movm2[2]-posiciones[5];
+  Difr2[3]=Movm2[3]-posiciones[11];
+  Difr3[0]=Movm3[0]-posiciones[0];
+  Difr3[1]=Movm3[1]-posiciones[1];
+  Difr3[2]=Movm3[2]-posiciones[2];
+  Difr3[3]=Movm3[3]-posiciones[3];
+  Difr4[0]=Movm4[0]-posiciones[0];
+  Difr4[1]=Movm4[1]-posiciones[1];
+  Difr4[2]=Movm4[2]-posiciones[2];
+  Difr4[3]=Movm4[3]-posiciones[11];
+  Difr5[0]=Movm5[0]-posiciones[0];
+  Difr5[1]=Movm5[1]-posiciones[8];
+  Difr6[0]=Movm6[0]-posiciones[11];
+  Difr7[0]=Movm7[0]-posiciones[0];
+  Difr7[1]=Movm7[1]-posiciones[1];
+  Difr7[2]=Movm7[2]-posiciones[2];
+  Difr7[3]=Movm7[0]-posiciones[3];
+  Difr7[4]=Movm7[1]-posiciones[4];
+  Difr7[5]=Movm7[2]-posiciones[5];
   setInitialServoPositions();
 // inicialisamos giroscopio/s
  Serial.println("Adafruit MPU6050 test!");
@@ -592,8 +634,11 @@ if (command.startsWith("firmes")) {
      angleZ= 0;
 }
 
-if (command.startsWith("emp")) {
+if (command.startsWith("emp")) {//empyric
  emp();
+}
+if (command.startsWith("left")) {//empyric
+ emp2();
 }
 if (command.startsWith("cinematic")) {
   //cinematica
@@ -654,26 +699,7 @@ void getup {
     Difr1[i]=Movm1[i]-posiciones[i]
   }*/
 void emp() { //empyric
-int Movm1[4]={30,105,75,108};
-int Difr1[4];
-  Difr1[0]=Movm1[0]-posiciones[0];
-  Difr1[1]=Movm1[1]-posiciones[1];
-  Difr1[2]=Movm1[2]-posiciones[2];
-  Difr1[3]=Movm1[3]-posiciones[8];
-int Movm2[4]={105,60,135,86};
-int Difr2[4];
-  Difr2[0]=Movm2[0]-posiciones[3];
-  Difr2[1]=Movm2[1]-posiciones[4];
-  Difr2[2]=Movm2[2]-posiciones[5];
-  Difr2[3]=Movm2[3]-posiciones[11];
-int Movm3[4]={20,80,60,120};
-int Difr3[4];
-  Difr3[0]=Movm3[0]-posiciones[0];
-  Difr3[1]=Movm3[1]-posiciones[1];
-  Difr3[2]=Movm3[2]-posiciones[2];
-  Difr3[3]=Movm3[3]-posiciones[3];
-
-AdvMoveAbsL(t01,10,30,105,75,P3,P4,P5,108,P11);
+AdvMoveAbsL(t01,10,30,105,75,P3,P4,P5,108,100);
 delay(t02);
 AdvMoveAbsL(t01,10,P0,P1,P2,105,60,135,P8,86);
 delay(t02);
@@ -684,9 +710,80 @@ delay(t02);
 AdvMoveAbsL(t01,10,5,P1,P2,P3,P4,P5,88,P11);
 delay(t02);
 AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+delay(t02);//delay(t02);
+//AdvMoveAbsL(t01,10,30,80,50,135,50,100,P8,P11);
+//delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,70,P11);
+delay(t02);//delay(t02);
+AdvMoveAbsL(t01,10,30,115,90,130,50,110,70,P11);// SI SIRVE SOLO SEDESVIA
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,75);
+delay(t02);//delay(t02);
+
+//
+
+//AdvMoveAbsL(t01,10,55,155,80,130,50,125,P8,P11); // SI SIRVE SOLO SEDESVIA
+
+//AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+//delay(t02);
+//AdvMoveAbsL(t01,10,55,115,40,110,P4,P5,P8,P11);
+//delay(t02);
+//AdvMoveAbsL(t01,10,55,115,40,120,P4,P5,P8,P11);
+//delay(t02);
+return;
+}
+
+void emp2() { //empyric
+AdvMoveAbsL(t01,10,30,105,75,P3,P4,P5,108,100);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,105,60,135,P8,86);
+delay(t02);
+AdvMoveAbsL(t01,10,20,80,60,120,P4,P5,P8,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,10,75,70,P3,P4,P5,P8,100);
+delay(t02);
+AdvMoveAbsL(t01,10,5,P1,P2,P3,P4,P5,88,P11);
 delay(t02);
 AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+delay(t02);//delay(t02);
+//AdvMoveAbsL(t01,10,30,80,50,135,50,100,P8,P11);
+//delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,70,P11);
+delay(t02);//delay(t02);
+AdvMoveAbsL(t01,10,30,115,75,130,50,110,70,P11);// SI SIRVE SOLO SEDESVIA
 delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,75);
+delay(t02);//delay(t02);
+/*AdvMoveAbsL(t01,10,P0,P1,P2,posiciones[3]-(Difr1[0]),posiciones[4]-(Difr1[1]),posiciones[5]-(Difr1[2]),
+80,75);
+delay(t02);
+AdvMoveAbsL(t01,10,posiciones[0]-(Difr2[0]),posiciones[1]-(Difr2[1]),posiciones[2]-(Difr2[2]),P3,P4,P5,
+85,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,posiciones[2]-(Difr3[3]),posiciones[3]-(Difr3[0]),posiciones[4]-(Difr3[1]),posiciones[5]-(Difr3[2]),
+P8,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,posiciones[3]-(Difr4[0]),posiciones[4]-(Difr4[1]),posiciones[5]-(Difr4[2]),
+80,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,posiciones[3]-(Difr5[0]),P4,P5,
+P8,92);
+delay(t02);
+AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,90,P11);
+delay(t02);
+AdvMoveAbsL(t01,10,posiciones[0]-(Difr7[3]),posiciones[1]-(Difr7[4]),posiciones[2]-(Difr7[5]),posiciones[3]-(Difr7[0]),posiciones[4]-(Difr7[1]),posiciones[5]-(Difr7[5]),
+P8,P11);
+delay(t02);*/
+//AdvMoveAbsL(t01,10,20,115,75,130,50,125,P8,85);// SI SIRVE SOLO SEDESVIA
+
+
+//AdvMoveAbsL(t01,10,30,115,75,130,50,125,P8,85);// SI SIRVE SOLO SEDESVIA
+//delay(t02);
+
+//
+
+//AdvMoveAbsL(t01,10,P0,P1,P2,P3,P4,P5,P8,90);
+//delay(t02);
 //AdvMoveAbsL(t01,10,55,115,40,110,P4,P5,P8,P11);
 //delay(t02);
 //AdvMoveAbsL(t01,10,55,115,40,120,P4,P5,P8,P11);
